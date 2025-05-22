@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bulletin Board</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main id="board">
+    <!-- Die Karten aus cards.json werden hier dynamisch eingefügt -->
+  </main>
+
+  <button id="addCardBtn" title="Neue Karte hinzufügen">+</button>
+  <div id="modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Neue Karte erstellen</h2>
+      <form id="cardForm">
+        <label>
+          Titel:<br />
+          <input type="text" id="titleInput" required />
+        </label>
+        <label>
+          Autor:<br />
+          <input type="text" id="authorInput" required />
+        </label>
+        <label>
+          Inhalt:<br />
+          <textarea id="contentInput" rows="4" required></textarea>
+        </label>
+        <div class="buttons">
+          <button type="submit">Speichern</button>
+          <button type="button" id="cancelBtn">Abbrechen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+
+  <script src="app.js"></script>
+
+</body>
+</html>

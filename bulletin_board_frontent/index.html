@@ -16,30 +16,49 @@
   </main>
 
   <button id="addCardBtn" title="Neue Karte hinzufügen">+</button>
+  <!-- Hinzufügen-Modal -->
   <div id="modal" class="modal hidden">
     <div class="modal-content">
-      <h2>Neue Karte erstellen</h2>
+      <h2>Neue Karte hinzufügen</h2>
       <form id="cardForm">
-        <label>
-          Titel:<br />
-          <input type="text" id="titleInput" required />
-        </label>
-        <label>
-          Autor:<br />
-          <input type="text" id="authorInput" required />
-        </label>
-        <label>
-          Inhalt:<br />
-          <textarea id="contentInput" rows="4" required></textarea>
-        </label>
+        <label for="titleInput">Titel:</label>
+        <input type="text" id="titleInput" required>
+        
+        <label for="authorInput">Autor:</label>
+        <input type="text" id="authorInput" required>
+        
+        <label for="contentInput">Inhalt:</label>
+        <textarea id="contentInput" required></textarea>
+        
         <div class="buttons">
-          <button type="submit">Speichern</button>
+          <button type="submit">Hinzufügen</button>
           <button type="button" id="cancelBtn">Abbrechen</button>
         </div>
       </form>
     </div>
   </div>
-  
+
+  <!-- Bearbeiten-Modal -->
+  <div id="editModal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Karte bearbeiten</h2>
+      <form id="editCardForm">
+        <label for="editTitleInput">Titel:</label>
+        <input type="text" id="editTitleInput" required>
+        
+        <label for="editAuthorInput">Autor:</label>
+        <input type="text" id="editAuthorInput" required>
+        
+        <label for="editContentInput">Inhalt:</label>
+        <textarea id="editContentInput" required></textarea>
+        
+        <div class="buttons">
+          <button type="submit">Speichern</button>
+          <button type="button" id="editCancelBtn">Abbrechen</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 

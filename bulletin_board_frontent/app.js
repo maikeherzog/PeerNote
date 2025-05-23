@@ -24,10 +24,22 @@ function addCardToBoard(card) {
   cardEl.classList.add('card');
 
   cardEl.innerHTML = `
+    <button class="delete-btn" title="Löschen">&times;</button>
     <h2>${card.title}</h2>
     <div class="author">von ${card.author}</div>
     <p class="content">${card.content}</p>
   `;
+
+  // Delete-Button Funktion
+  cardEl.querySelector('.delete-btn').addEventListener('click', () => {
+    board.removeChild(cardEl);
+
+    // Optional: Karte auch aus globalem Array entfernen
+    const index = window.cardsData.indexOf(card);
+    if (index > -1) {
+      window.cardsData.splice(index, 1);
+    }
+  });
 
   board.appendChild(cardEl);
 }

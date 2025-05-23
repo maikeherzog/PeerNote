@@ -76,8 +76,32 @@ function setupModal() {
   });
 }
 
+function setupSearch() {
+  const input = document.getElementById('searchInput');
+  const board = document.getElementById('board');
+
+  input.addEventListener('input', () => {
+    const query = input.value.toLowerCase();
+
+    // Vorhandene Karten aus globalem Array filtern
+    const filtered = window.cardsData.filter(card => {
+      return (
+        card.title.toLowerCase().includes(query) ||
+        card.author.toLowerCase().includes(query) ||
+        card.content.toLowerCase().includes(query)
+      );
+    });
+
+    // Board leeren und gefilterte Karten neu einfügen
+    board.innerHTML = '';
+    filtered.forEach(addCardToBoard);
+  });
+}
+
+
 // Wenn DOM geladen ist, Karten laden und Modal initialisieren
 window.addEventListener('DOMContentLoaded', () => {
   loadCards();
   setupModal();
+  setupSearch();
 });

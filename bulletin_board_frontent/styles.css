@@ -1,227 +1,387 @@
 /* Board Container */
 #board {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 24px;
-  max-width: 1000px;
-  width: 100%;
-  padding: 20px;
-  background: #f5f7fa; /* dezenter Hintergrund */
+display: grid;
+grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+gap: 24px;
+max-width: 1000px;
+width: 100%;
+padding: 20px;
+background: #f5f7fa; /* dezenter Hintergrund */
+margin: 0 auto;
 }
 
 /* Karte / Zettel */
 .card {
-  background: #fff;
-  border: 1.5px solid #ccc; /* klarer Rand */
-  border-radius: 12px;
-  padding: 24px 20px;
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.12); /* Schatten */
-  transition: box-shadow 0.3s ease, transform 0.3s ease;
-  cursor: default;
+background: #fff;
+border: 1.5px solid #ccc; /* klarer Rand */
+border-radius: 12px;
+padding: 24px 20px;
+box-shadow: 0 6px 12px rgba(0, 0, 0, 0.12); /* Schatten */
+transition: box-shadow 0.3s ease, transform 0.3s ease;
+cursor: default;
+position: relative; /* wichtig für Positionierung des X */
 }
 
 .card:hover {
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
-  transform: translateY(-6px);
+box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
+transform: translateY(-6px);
 }
 
 /* Überschrift */
 .card h2 {
-  font-size: 1.6rem;
-  font-weight: 700;
-  margin: 0 0 10px 0;
-  color: #222;
+font-size: 1.6rem;
+font-weight: 700;
+margin: 0 0 10px 0;
+color: #222;
 }
 
 /* Autor */
 .card .author {
-  font-size: 0.9rem;
-  color: #777;
-  margin-bottom: 16px;
-  font-style: normal;
+font-size: 0.9rem;
+color: #777;
+margin-bottom: 16px;
+font-style: normal;
 }
 
 /* Inhaltstext */
 .card .content {
-  font-size: 1rem;
-  line-height: 1.5;
-  color: #111;
+font-size: 1rem;
+line-height: 1.5;
+color: #111;
 }
+
 /* Plus-Button unten rechts */
 #addCardBtn {
-  position: fixed;
-  right: 30px;
-  bottom: 30px;
-  width: 56px;
-  height: 56px;
-  font-size: 32px;
-  font-weight: bold;
-  color: white;
-  background-color: #007bff;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0, 123, 255, 0.6);
-  transition: background-color 0.3s ease;
-  user-select: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+position: fixed;
+right: 30px;
+bottom: 30px;
+width: 56px;
+height: 56px;
+font-size: 32px;
+font-weight: bold;
+color: white;
+background-color: #007bff;
+border: none;
+border-radius: 50%;
+cursor: pointer;
+box-shadow: 0 4px 10px rgba(0, 123, 255, 0.6);
+transition: background-color 0.3s ease;
+user-select: none;
+display: flex;
+align-items: center;
+justify-content: center;
 }
 
 #addCardBtn:hover {
-  background-color: #0056b3;
+background-color: #0056b3;
 }
 
 /* Modal-Hintergrund */
 .modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 999;
+position: fixed;
+top: 0;
+left: 0;
+width: 100vw;
+height: 100vh;
+background: rgba(0,0,0,0.5);
+display: flex;
+align-items: center;
+justify-content: center;
+z-index: 999;
 }
 
 /* Modal verstecken */
 .hidden {
-  display: none;
+display: none;
 }
 
 /* Modal Inhalt */
 .modal-content {
-  background: white;
-  padding: 24px 30px;
-  border-radius: 12px;
-  width: 320px;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+background: white;
+padding: 24px 30px;
+border-radius: 12px;
+width: 320px;
+box-shadow: 0 8px 20px rgba(0,0,0,0.25);
 }
 
 .modal-content h2 {
-  margin-top: 0;
-  margin-bottom: 16px;
-  font-weight: 700;
-  color: #222;
+margin-top: 0;
+margin-bottom: 16px;
+font-weight: 700;
+color: #222;
 }
 
 .modal-content label {
-  display: block;
-  margin-bottom: 12px;
-  font-size: 0.9rem;
-  color: #444;
+display: block;
+margin-bottom: 12px;
+font-size: 0.9rem;
+color: #444;
 }
 
 .modal-content input,
 .modal-content textarea {
-  width: 100%;
-  padding: 8px 10px;
-  font-size: 1rem;
-  border-radius: 6px;
-  border: 1.5px solid #ccc;
-  margin-top: 4px;
-  resize: vertical;
+width: 100%;
+padding: 8px 10px;
+font-size: 1rem;
+border-radius: 6px;
+border: 1.5px solid #ccc;
+margin-top: 4px;
+resize: vertical;
 }
 
 .modal-content textarea {
-  font-family: inherit;
+font-family: inherit;
 }
 
 .buttons {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 20px;
+display: flex;
+justify-content: flex-end;
+gap: 12px;
+margin-top: 20px;
 }
 
 .buttons button {
-  padding: 8px 16px;
-  font-size: 1rem;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-  transition: background-color 0.25s ease;
+padding: 8px 16px;
+font-size: 1rem;
+border-radius: 6px;
+border: none;
+cursor: pointer;
+transition: background-color 0.25s ease;
 }
 
 .buttons button[type="submit"] {
-  background-color: #007bff;
-  color: white;
+background-color: #007bff;
+color: white;
 }
 
 .buttons button[type="submit"]:hover {
-  background-color: #0056b3;
+background-color: #0056b3;
 }
 
-.buttons button#cancelBtn {
-  background-color: #ccc;
-  color: #333;
+.buttons button#cancelBtn,
+.buttons button#editCancelBtn,
+.buttons button#createBoardCancelBtn {
+background-color: #ccc;
+color: #333;
 }
 
-.buttons button#cancelBtn:hover {
-  background-color: #999;
+.buttons button#cancelBtn:hover,
+.buttons button#editCancelBtn:hover,
+.buttons button#createBoardCancelBtn:hover {
+background-color: #999;
 }
 
 #searchBar {
-  width: 100%;
-  padding: 20px 30px;
-  background-color: #f7f7f7;
-  border-bottom: 1px solid #ddd;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+width: 100%;
+padding: 20px 30px;
+background-color: #f7f7f7;
+border-bottom: 1px solid #ddd;
+box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+display: flex;
+justify-content: center;
 }
 
 #searchBar input {
-  width: 100%;
-  max-width: 600px;
-  padding: 10px 16px;
-  font-size: 1rem;
-  border: 1.5px solid #ccc;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
-.card {
-  position: relative; /* wichtig für Positionierung des X */
+width: 100%;
+max-width: 600px;
+padding: 10px 16px;
+font-size: 1rem;
+border: 1.5px solid #ccc;
+border-radius: 8px;
+box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .delete-btn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: transparent;
-  border: none;
-  font-size: 20px;
-  font-weight: bold;
-  color: #888;
-  cursor: pointer;
-  padding: 2px 6px;
-  line-height: 1;
-  border-radius: 50%;
-  transition: background-color 0.2s ease;
+position: absolute;
+top: 10px;
+right: 10px;
+background: transparent;
+border: none;
+font-size: 20px;
+font-weight: bold;
+color: #888;
+cursor: pointer;
+padding: 2px 6px;
+line-height: 1;
+border-radius: 50%;
+transition: background-color 0.2s ease;
 }
 
 .delete-btn:hover {
-  background-color: #f5f5f5;
-  color: #d00;
+background-color: #f5f5f5;
+color: #d00;
 }
 
 .edit-btn {
-  position: absolute;
-  top: 10px;
-  right: 40px;
-  background: transparent;
-  border: none;
-  font-size: 18px;
-  color: #666;
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 50%;
-  transition: background-color 0.2s ease;
+position: absolute;
+top: 10px;
+right: 40px;
+background: transparent;
+border: none;
+font-size: 18px;
+color: #666;
+cursor: pointer;
+padding: 2px 6px;
+border-radius: 50%;
+transition: background-color 0.2s ease;
 }
 
 .edit-btn:hover {
-  background-color: #f0f0f0;
-  color: #333;
+background-color: #f0f0f0;
+color: #333;
+}
+
+/* Neue Styles für Board Navigation */
+#boardNav {
+width: 100%;
+padding: 20px 30px;
+background-color: #fff;
+border-bottom: 1px solid #ddd;
+box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.nav-header {
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 15px;
+max-width: 1000px;
+margin-left: auto;
+margin-right: auto;
+}
+
+.board-search {
+max-width: 1000px;
+margin: 0 auto 15px auto;
+}
+
+.board-search input {
+width: 100%;
+padding: 8px 12px;
+font-size: 0.9rem;
+border: 1.5px solid #ccc;
+border-radius: 6px;
+box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+transition: border-color 0.25s ease;
+}
+
+.board-search input:focus {
+outline: none;
+border-color: #007bff;
+}
+
+.nav-title {
+font-size: 1.5rem;
+color: #222;
+font-weight: 700;
+margin: 0;
+}
+
+#createBoardBtn {
+background-color: #007bff;
+color: white;
+border: none;
+padding: 8px 16px;
+border-radius: 6px;
+cursor: pointer;
+font-size: 1rem;
+transition: background-color 0.25s ease;
+}
+
+#createBoardBtn:hover {
+background-color: #0056b3;
+}
+
+.board-tabs {
+display: flex;
+flex-wrap: wrap;
+gap: 10px;
+max-width: 1000px;
+margin: 0 auto;
+}
+
+.board-tab {
+padding: 8px 16px;
+background-color: #f7f7f7;
+border: 1.5px solid #ccc;
+border-radius: 6px;
+cursor: pointer;
+transition: all 0.25s ease;
+position: relative;
+font-size: 1rem;
+color: #333;
+}
+
+.board-tab.active {
+background-color: #007bff;
+color: white;
+border-color: #007bff;
+}
+
+.board-tab:hover:not(.active) {
+background-color: #e9ecef;
+border-color: #999;
+}
+
+.delete-board {
+position: absolute;
+top: -8px;
+right: -8px;
+background-color: #dc3545;
+color: white;
+border: none;
+border-radius: 50%;
+width: 20px;
+height: 20px;
+font-size: 12px;
+font-weight: bold;
+cursor: pointer;
+display: none;
+line-height: 1;
+}
+
+.board-tab:hover .delete-board {
+display: block;
+}
+
+.empty-state {
+text-align: center;
+padding: 40px;
+color: #777;
+grid-column: 1 / -1;
+}
+
+.empty-state h3 {
+margin-bottom: 10px;
+font-size: 1.5rem;
+color: #555;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+.nav-header {
+flex-direction: column;
+gap: 15px;
+align-items: stretch;
+}
+
+.board-tabs {
+justify-content: center;
+}
+
+.board-search {
+margin-bottom: 10px;
+}
+
+#boardNav {
+padding: 15px 20px;
+}
+
+#searchBar {
+padding: 15px 20px;
+}
+
+#board {
+padding: 15px;
+}
 }

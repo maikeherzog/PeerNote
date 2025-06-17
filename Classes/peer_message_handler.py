@@ -9,7 +9,7 @@ import socket
 HEADER_SIZE = 4
 
 
-def create_packet(msg_type: MessageType, node_id: str, payload: dict):
+def create_packet(msg_type: MessageType, node_id: str, payload: list):
     '''
     Create a json string by inserting the parameters in the following frame:
 
@@ -63,7 +63,6 @@ def receive_exactly(n_bytes, conn, header: bool = False):
     :return: buffer containing readed byte
     '''
     buf = bytearray()
-    print(n_bytes)
     # Ensure that exactly the desired amount of bytes is received
     while len(buf) < n_bytes:
         # passive waiting until data is coming
@@ -73,8 +72,9 @@ def receive_exactly(n_bytes, conn, header: bool = False):
                 return None
             # connection is closed from the other side if this happens
             else:
-                print(buf)
-                print(part)
+                # this happens when the header did contain more bytes to read, than the buffer really contained, or any other kind of error
                 raise ConnectionError("unexpected closing while receiving data.")
         buf.extend(part)
     return buf
+
+

@@ -8,15 +8,19 @@ from datetime import datetime
 import uuid
 import random
 
+import ipaddress
+
 from Classes.Board import Board
 from Classes.peer_message_handler import *
 from message_type import MessageType
 
 
 class PeerNode:
-    def __init__(self, host, port, super_peer: bool = False, board: Board = None):
-        self.host = host
-        self.port = port
+    MAX_PEER_LIST = 5
+
+    def __init__(self, host: str = "0.0.0.0", port: int = 0, super_peer: bool = False, board: Board = None):
+        self.host: str = host
+        self.port: int = port
 
         # max number of active tcp connections
         self.max_connections = 5
@@ -37,6 +41,8 @@ class PeerNode:
 
         # super peer section
         self.super_peer = super_peer
+
+        # if set super peer there should be at least an empty board TODO
         self.board = board
         print(f"Node {self.node_id} initialized at {self.host}:{self.port}")
 
@@ -54,7 +60,6 @@ class PeerNode:
         return self.peers
 
     ### Connection to and communication with other peers
-
     def start(self):
         """Starts the node, listening for incoming connections."""
 
@@ -75,40 +80,86 @@ class PeerNode:
                 conn, addr = self.server_socket.accept()
                 print(f"Incoming connection from {addr}")
                 # Handle connection in a new thread
-                threading.Thread(target=self._handle_client_connection, args=(conn, addr), daemon=True).start()
+                threading.Thread(target=self._handle_peer_connection, args=(conn, addr), daemon=True).start()
             except Exception as e:
                 if self.running:
                     print(f"Error accepting connection: {e}")
                 break
 
-    def _handle_client_connection(self, conn, addr):
+    def _get_peers_handler(self, conn, other_id):
+
+        if not self.super_peer:
+            return
+
+        try:
+            # Filter nur Super-Peers
+            super_peers = [
+                {"node_id": peer_id, "host": host, "port": port}
+                for peer_id, (host, port, is_super) in self.peers.items()
+                if is_super and peer_id != other_id
+            ]
+            selected_peers = super_peers[:self.MAX_PEER_LIST]
+
+            data = create_packet(MessageType.PEER_LIST, self.node_id, selected_peers)
+
+            send_packet(data, conn)
+
+        except Exception as e:
+            print(f"Error sending peer list: {e}")
+
+    def _peer_list_handler(self, content: list[dict]):
+        # expect the super peer format
+
+        #only if this is a super peer
+        if not self.super_peer:
+            return
+
+        for peer in content:
+            if peer.get('node_id') in self.peers.keys():
+                continue
+            else:
+                self.peers[peer.get('node_id')] = (peer.get('host'), peer.get('port'), True)
+
+                if len(self.peers) > self.max_total_conn:
+                    break
+
+    def _request_peers(self):
+        if not self.super_peer:
+            return
+
+        for peer_id, (host, port, is_super) in self.peers.items():
+            if not is_super:
+                continue
+
+            conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            conn.connect((host, port))
+
+            data = create_packet(MessageType.GET_PEERS, self.node_id, [])
+
+            # expect some kind of answer
+            self._handle_peer_connection(conn, (host, port))
+
+    def _handle_peer_connection(self, conn, addr):
         """Handles a single client connection (a peer)."""
-        cont = True
 
         data = receive_packet(conn)
+        ip, port = addr
+        print(f"{self.port}")
         while data is not None:
+            print(f"{self.port}")
             try:
-                # data = receive_packet(conn)
 
-                # transform into a readable dict
-                peer_data: dict = json.loads(data)
-
+                # transform data into a readable format
+                data = json.loads(data)
                 try:
-                    msg_type = MessageType(peer_data.get("type", "error"))
+                    msg_type = MessageType(data.get("type", "error"))
 
                 except ValueError as e:
-                    print(e)
+                    print(f"Couldnt get type of dataset: {e}")
                     msg_type = MessageType.ERROR
+                other_id = data.get("node_id")
 
                 match msg_type:
-                    case MessageType.TEXT:
-                        print("Received a text message.")
-                        # handle text
-                    case MessageType.CONNECT:
-                        print("Peer wants to connect.")
-                        self.send_close(conn)
-                        cont = False
-                        # handle connection
                     case MessageType.DATA_REQUEST:
                         print("Data request received.")
                         # send requested data
@@ -125,16 +176,19 @@ class PeerNode:
                         print("Received PONG.")
                         # maybe update liveness
                     case MessageType.GET_PEERS:
+                        self._get_peers_handler(conn, other_id)
                         print("Peer requests peer list.")
                         # send known peers
                     case MessageType.PEER_LIST:
                         print("Got peer list.")
+                        self._peer_list_handler(data.get('payload'))
+                        # after adding whole peer list break this loop ???
+                        break
                         # add peers
                     case MessageType.CLOSE:
                         print("Connection close requested.")
                         conn.shutdown(socket.SHUT_RDWR)
                         conn.close()
-                        cont = False
                         # cleanup and close
                     case MessageType.ERROR:
                         print("Received unknown or malformed message.")
@@ -143,8 +197,9 @@ class PeerNode:
 
             except Exception as e:
                 print(f"Error handling client connection from {addr}: {e}")
-                cont = False
+            finally:
                 conn.close()
+                # if finally executes break or return the error is discarded (maybe think about this here??!?)
 
             # sanity check whether is closed, this can happen whenever
             if conn.fileno() < 0:
@@ -169,16 +224,18 @@ class PeerNode:
             conn.connect((peer_host, peer_port))
 
             # Send our own node info to the peer
-            data = create_packet(msg_type=MessageType.CONNECT, node_id=str(self.node_id),
+            data = create_packet(msg_type=MessageType.GET_PEERS, node_id=str(self.node_id),
                                  payload={'node_id': str(self.node_id), 'host': self.host, 'port': self.port})
 
             # send connection request to (not yet) peer
             send_packet(data, conn)
 
+            print("\ngoing into peer connection")
+            self._handle_peer_connection(conn, (peer_host, peer_port))
             # expect other package
-            receive_packet(conn)
+            # receive_packet(conn)
 
-            conn.close()
+            # conn.close()
             return True
         except Exception as e:
             print(f"Error while sending: {e}")

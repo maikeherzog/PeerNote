@@ -14,14 +14,23 @@ from Classes.Board import Board
 from Classes.peer_message_handler import *
 from message_type import MessageType
 
+BOOTSTRAP = ("127.0.0.1", 8001)
+
 
 class PeerNode:
     MAX_PEER_LIST = 5
 
-    def __init__(self, host: str = "0.0.0.0", port: int = 0, super_peer: bool = False, board: Board = None):
+    def __init__(self, host: str = "127.0.0.1", port: int = 8000, super_peer: bool = False, board: Board = None):
+
+        if host == "0.0.0.0" or host == "" or port == 0:
+            raise Exception("0.0.0.0 and port 0 is not supported")
         self.host: str = host
         self.port: int = port
 
+        if (host, port) == BOOTSTRAP:
+            self.bootstrap = True
+        else:
+            self.bootstrap = False
         # max number of active tcp connections
         self.max_connections = 5
 
@@ -66,6 +75,7 @@ class PeerNode:
         self.server_socket: socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_socket.bind((self.host, self.port))
+        print(self.server_socket.getsockname())
         self.server_socket.listen(self.max_connections)
         self.running: bool = True
         print(f"Node {self.node_id} listening on {self.host}:{self.port}")
@@ -86,10 +96,14 @@ class PeerNode:
                     print(f"Error accepting connection: {e}")
                 break
 
-    def _get_peers_handler(self, conn, other_id):
+    def _get_peers_handler(self, conn, other_id, host, port):
 
         if not self.super_peer:
             return
+
+        # add to own peer list if other_id is not in peer list
+        if other_id not in self.peers.keys():
+            self.peers[other_id] = (host, port, True)
 
         try:
             # Filter nur Super-Peers
@@ -98,9 +112,15 @@ class PeerNode:
                 for peer_id, (host, port, is_super) in self.peers.items()
                 if is_super and peer_id != other_id
             ]
+            if self.bootstrap:
+                super_peers.append({
+                    'node_id': self.node_id,
+                    'host': self.host,
+                    'port': self.port
+                })
             selected_peers = super_peers[:self.MAX_PEER_LIST]
 
-            data = create_packet(MessageType.PEER_LIST, self.node_id, selected_peers)
+            data = create_packet(MessageType.PEER_LIST, self.node_id, self.host, self.port, selected_peers)
 
             send_packet(data, conn)
 
@@ -123,30 +143,90 @@ class PeerNode:
                 if len(self.peers) > self.max_total_conn:
                     break
 
-    def _request_peers(self):
+    def request_peers(self):
+        '''
+        Using this function a peer can request other peers from it's onw peer list
+        :return:
+        '''
+
+        # only allow connecctions this way if this is a super peer, other peers have to search for boards and add this way
         if not self.super_peer:
             return
+
+        # if there is no peer in the list use the bootstrapping peer as connection
+        if len(self.peers) == 0 and not self.bootstrap:
+            conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+            conn.connect(BOOTSTRAP)
+
+            data = create_packet(MessageType.GET_PEERS, self.node_id, self.host, self.port, [])
+            send_packet(data, conn)
+
+            # expect some kind of answer
+            self._handle_peer_connection(conn, BOOTSTRAP)
+
+            # sanity close
+            if conn.fileno() != -1:
+                self.send_close(conn)
 
         for peer_id, (host, port, is_super) in self.peers.items():
             if not is_super:
                 continue
-
             conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
             conn.connect((host, port))
 
-            data = create_packet(MessageType.GET_PEERS, self.node_id, [])
+            data = create_packet(MessageType.GET_PEERS, self.node_id, self.host, self.port, [])
+            send_packet(data, conn)
 
             # expect some kind of answer
             self._handle_peer_connection(conn, (host, port))
+
+            # sanity close
+            if conn.fileno() != -1:
+                self.send_close(conn)
+
+
+    def bootstrap(self):
+        '''
+        This function shall work for simple peers to bootstrap to the network, in order to do this just try to connect
+        with bootstrap peer, if successful connected add to peerslist as default peer. Superpeers may not need to use this.
+
+
+        :return:
+        '''
+
+        try:
+            conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+            # if connection successful (no error) ping bootstrap
+            conn.connect(BOOTSTRAP)
+
+            data = create_packet(MessageType.PING, self.node_id, self.host, self.port, ["default"])
+            send_packet(data, conn)
+
+            # receive response as pong
+            data: dict = json.loads(receive_packet(conn))
+
+            match MessageType(data.get("type", "error")):
+
+                case MessageType.PONG:
+                    # TODO add at leat bootstrap peer to peers list and maybe all other boards ( depending on implementation)
+                    return
+                case _:
+                    raise Exception("unexpected behavior, bootstap peer may be down")
+
+        except Exception as e:
+            raise e
+
 
     def _handle_peer_connection(self, conn, addr):
         """Handles a single client connection (a peer)."""
 
         data = receive_packet(conn)
-        ip, port = addr
-        print(f"{self.port}")
+        send_host, send_port = addr
+
         while data is not None:
-            print(f"{self.port}")
             try:
 
                 # transform data into a readable format
@@ -158,6 +238,8 @@ class PeerNode:
                     print(f"Couldnt get type of dataset: {e}")
                     msg_type = MessageType.ERROR
                 other_id = data.get("node_id")
+                reach_host = data.get("host")
+                reach_port = data.get("port")
 
                 match msg_type:
                     case MessageType.DATA_REQUEST:
@@ -176,19 +258,20 @@ class PeerNode:
                         print("Received PONG.")
                         # maybe update liveness
                     case MessageType.GET_PEERS:
-                        self._get_peers_handler(conn, other_id)
+                        self._get_peers_handler(conn, other_id, reach_host, reach_port)
                         print("Peer requests peer list.")
                         # send known peers
                     case MessageType.PEER_LIST:
                         print("Got peer list.")
                         self._peer_list_handler(data.get('payload'))
                         # after adding whole peer list break this loop ???
-                        break
+                        return
                         # add peers
                     case MessageType.CLOSE:
                         print("Connection close requested.")
                         conn.shutdown(socket.SHUT_RDWR)
-                        conn.close()
+                        if conn.fileno() != -1:
+                            conn.close()
                         # cleanup and close
                     case MessageType.ERROR:
                         print("Received unknown or malformed message.")
@@ -209,37 +292,10 @@ class PeerNode:
                 data = receive_packet(conn)
 
     def send_close(self, conn: socket):
-        data = create_packet(MessageType.CLOSE, self.node_id, {})
+        data = create_packet(MessageType.CLOSE, self.node_id, self.host, self.port, {})
         send_packet(data, conn)
+        conn.shutdown(socket.SHUT_RDWR)
         conn.close()
-
-    def connect_to_peer(self, peer_host, peer_port):
-        """Connects to another peer node."""
-        if (peer_host, peer_port) == (self.host, self.port):
-            print("Cannot connect to self.")
-            return False
-
-        try:
-            conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            conn.connect((peer_host, peer_port))
-
-            # Send our own node info to the peer
-            data = create_packet(msg_type=MessageType.GET_PEERS, node_id=str(self.node_id),
-                                 payload={'node_id': str(self.node_id), 'host': self.host, 'port': self.port})
-
-            # send connection request to (not yet) peer
-            send_packet(data, conn)
-
-            print("\ngoing into peer connection")
-            self._handle_peer_connection(conn, (peer_host, peer_port))
-            # expect other package
-            # receive_packet(conn)
-
-            # conn.close()
-            return True
-        except Exception as e:
-            print(f"Error while sending: {e}")
-            return False
 
     def _listen_to_peer(self, peer_id, sock):
         """Listens for messages from a specific connected peer."""
@@ -291,11 +347,6 @@ class PeerNode:
         else:
             print(f"Peer {peer_id} not found in peer list.")
 
-    def broadcast_message(self, message_type, content=None):
-        """Sends a message to all connected peers."""
-        print(f"Broadcasting message: Type={message_type}, Content={content}")
-        for peer_id in list(self.peers.keys()):  # Use list to avoid issues if peers are removed during iteration
-            self.send_message_to_peer(peer_id, message_type, content)
 
     def process_message(self, sender_id, message):
         """Processes an incoming message from a peer."""
@@ -419,23 +470,3 @@ class PeerNode:
         if not self.super_peer:
             self.super_peer = True
             self.board = Board(title, keywords)
-
-            # Ideen: Connctions erweitern sodass man unterscheidet zwischen knonw peers und known superpeers,
-            #  Anfragen für die Suche nach anderen superepeers nur noch beantworten wenn man selbst superpeer ist
-    # def become_superpeer_and_create_board(self, title, keywords):
-    #     # Create a Super_Peer instance from the current Peer_node
-    #     super_peer = SuperPeer(self.host, self.port, Board(title, keywords))
-    #     # Copy relevant attributes from the current Peer_node to the new Super_Peer
-    #     super_peer.node_id = self.node_id
-    #     super_peer.peers = self.peers
-    #     super_peer.data_store = self.data_store
-    #     super_peer.max_connections = self.max_connections  ##### Ändern!!!!!! Aber kein Neustart. Problem
-    #     super_peer.server_socket = self.server_socket
-    #     super_peer.running = self.running
-    #
-    #     # Stop the current Peer_node without closing connections
-    #     self.running = False
-    #     self.server_socket = None  # Prevent closing the socket here
-    #
-    #     print(f"Node {self.node_id} converted to Super_Peer with board '{title}'.")
-    #     return super_peer

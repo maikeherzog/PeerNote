@@ -9,7 +9,7 @@ import socket
 HEADER_SIZE = 4
 
 
-def create_packet(msg_type: MessageType, node_id: str, payload: list):
+def create_packet(msg_type: MessageType, node_id: str, host:str, port: int, payload: list):
     '''
     Create a json string by inserting the parameters in the following frame:
 
@@ -26,6 +26,8 @@ def create_packet(msg_type: MessageType, node_id: str, payload: list):
     return json.dumps({
         "type": msg_type,
         "node_id": node_id,
+        "host": host,
+        "port": port,
         # might be too dirty, need to maybe deserialize it
         "timestamp": str(datetime.now()),
         "payload": payload

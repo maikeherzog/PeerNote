@@ -30,13 +30,13 @@ def main():
     global bootstrapping_nodes
 
     ### Base network
-    node1 = PeerNode("127.0.0.1", 8001, super_peer=True)
+    bootstrap = PeerNode("127.0.0.1", 8001, super_peer=True)
     node2 = PeerNode("127.0.0.1", 8002, super_peer=True)
     node3 = PeerNode("127.0.0.1", 8003, super_peer=True)
     node4 = PeerNode("127.0.0.1", 8004, super_peer=True)
     node5 = PeerNode("127.0.0.1", 8005, super_peer=True)
 
-    node1.start()
+    bootstrap.start()
     node2.start()
     node3.start()
     node4.start()
@@ -44,18 +44,29 @@ def main():
 
     time.sleep(1) # Give servers a moment to start
     # Form ring-like peer network
-    node1.connect_to_peer("127.0.0.1", 8002)
-    print(node1.peers)
+    # node1.connect_to_peer("127.0.0.1", 8002)
+    # print(node1.peers)
     # # time.sleep(1)
-    node2.connect_to_peer("127.0.0.1", 8003)
-    # time.sleep(1)
-    node3.connect_to_peer("127.0.0.1", 8004)
+    bootstrap.request_peers()
     time.sleep(1)
-    node4.connect_to_peer("127.0.0.1", 8005)
+    print("boot")
+    node2.request_peers()
     time.sleep(1)
-    node5.connect_to_peer("127.0.0.1", 8001)
+    print("node2")
+    node3.request_peers()
+    time.sleep(1)
+    print("node3")
+    node4.request_peers()
+    time.sleep(1)
+    print("node4")
+    node5.request_peers()
+    # node2.connect_to_peer("127.0.0.1", 8001)
+    # node3.connect_to_peer("127.0.0.1", 8002)
+    # node4.connect_to_peer("127.0.0.1", 8003)
+    # node5.connect_to_peer("127.0.0.1", 8004)
 
-    bootstrapping_nodes = [node1, node2, node3, node4, node5]
+    print(f"node5: {node5.peers}")
+    assert len(node5.peers) == 4
     time.sleep(3)
     print("stopping")
     return

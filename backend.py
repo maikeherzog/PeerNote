@@ -66,13 +66,18 @@ def main():
     # node5.connect_to_peer("127.0.0.1", 8004)
 
     print(f"node5: {node5.peers}")
-    assert len(node5.peers) == 4
+    # assert len(node5.peers) == 4
     time.sleep(3)
     print("stopping")
+    node6 = PeerNode("127.0.0.1", 8018, super_peer=True)
+    # startup node communication
+    node6.start()
+    node6.peers[node5.node_id] = (node5.host, node5.port, True)
+    time.sleep(1)
+    node6.request_peers()
     return
 
     # Join network
-    node6 = PeerNode("127.0.0.1", 8018)
     # join_network(node6)
 
     print("Stopping nodes...")

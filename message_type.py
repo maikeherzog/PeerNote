@@ -29,6 +29,8 @@ class MessageType(str, Enum):
     CLOSE = "close_connection"
     # error in case of something unexpected
     ERROR = "error"
+    CONNECT = "connect"
+    CONNECT_RESPONSE = "connect_response"
 
 
 '''

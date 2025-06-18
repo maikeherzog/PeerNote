@@ -3,6 +3,7 @@ import threading
 import json
 import hashlib
 import time
+from Classes.Board import Board
 from datetime import datetime
 import uuid
 import random
@@ -10,21 +11,17 @@ import random
 from Classes.peer_node import PeerNode
 
 ### Bootstrapping
-def join_network(new_node):
-  ttl = 3
+def join_network():
 
-  while True:
-    node = random.choice(bootstrapping_nodes)
-    if new_node.connect_to_peer(node.get_host(), node.get_port()):
-      break;
+    nodes = []
+    for i in range(8020, 8030):
+        node = PeerNode("127.0.0.1", i, False, None)
+        nodes.append(node)
+        node.start()
+        node.do_bootstrap()
+        time.sleep(1)
 
-  print(len(new_node.get_peers()))
-
-  for node in new_node.get_peers():
-    new_node.send_message_to_peer(node, 'ping', {'path': new_node.get_id(), 'ttl': ttl})
-
-  print(len(new_node.get_peers()))
-  print(new_node.get_peers())
+    return
 
 def main():
     global bootstrapping_nodes
@@ -32,7 +29,7 @@ def main():
     ### Base network
     bootstrap = PeerNode("127.0.0.1", 8001, super_peer=True)
     node2 = PeerNode("127.0.0.1", 8002, super_peer=True)
-    node3 = PeerNode("127.0.0.1", 8003, super_peer=True)
+    node3 = PeerNode("127.0.0.1", 8003, super_peer=True, board=Board("yolo", ["hello", "world"]))
     node4 = PeerNode("127.0.0.1", 8004, super_peer=True)
     node5 = PeerNode("127.0.0.1", 8005, super_peer=True)
 
@@ -76,9 +73,12 @@ def main():
     # node6.peers[node5.node_id] = (node5.host, node5.port, True)
     time.sleep(1)
     node6.do_bootstrap()
+    bootstrap.issue_search_request(["hello"])
+
+    node6.issue_search_request(["hello"])
 
     # Join network
-    # join_network(node6)
+    join_network()
 
     bootstrap.stop()
 

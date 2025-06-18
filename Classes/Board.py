@@ -9,6 +9,7 @@ from collections import defaultdict
 
 import random
 
+from Classes.Card import Card
 
 class Board:
     def __init__(self, title: str, keywords: set[str]):
@@ -22,7 +23,8 @@ class Board:
 
         #
         self.keywords: set[str] = keywords
-        self.card_references = {}
+        self.card_references: dict[tuple[str, str], Card] = {}
+
         self.not_allowed_to_write = []
 
         # mutex lock, allowing parallelism
@@ -113,8 +115,8 @@ class Board:
 
     def get_board(self):
         '''
-        TODO: nicht implementiert
-        Hier am besten eine repräsentation generieren die mittels tcp dann an anfraggende peers geschickt werden kann.
+        TODO: nicht fertig implementiert
+        Idea: Return all valid card references, so that the peer is able to request the content of those.
         :return:
         '''
 
@@ -127,13 +129,23 @@ class Board:
         '''
         for key in keywords:
             if key in self.keywords:
-                print("Return true")
                 return True
         return False
 
-    def add_card_reference(self, card_id, peer_id, peer_host, peer_port):
-        if peer_id not in self.card_references:
-            self.card_references[card_id] = (peer_host, peer_port)
 
+    def has_meta_ref(self, node_id, title) -> bool:
+        return self.card_references.get((node_id, title)) is not None
+
+
+    def get_reference(self, node_id, title) -> Card | None:
+        return self.card_references.get((node_id, title))
+
+    def update_reference(self, node_id, title, host, port):
+        if self.has_meta_ref(node_id, title):
+            self.card_references.get((node_id, title)).update_timestamp()
+        else:
+            self.card_references[(node_id, title)] = Card(title, node_id, host, port)
     def add_not_allowed_to_write(self, user_id):
         self.not_allowed_to_write.append(user_id)
+
+

@@ -107,6 +107,7 @@ def handle_ping(node, conn, data: dict):
     if node.board and node.board.query_matches(keywords):
         pong_payload = {
             "ping_id": ping_id,
+            "title": node.board.get_title(),
             "responder_id": node.node_id,
             "responder_host": node.host,
             "responder_port": node.port,
@@ -152,6 +153,7 @@ def handle_pong(node, data):
     ping_id = payload.get("ping_id")
     responder_info = {
         "responder_id": payload.get("responder_id"),
+        "board_title": payload.get("title"),
         "responder_host": payload.get("responder_host"),
         "responder_port": payload.get("responder_port")
     }

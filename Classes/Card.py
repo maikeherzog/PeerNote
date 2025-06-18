@@ -8,11 +8,10 @@ import uuid
 import random
 
 class Card:
-  def __init__(self, title, author, content):
+  def __init__(self, title, author, host, port):
     self.id = str(uuid.uuid4())
     self.title = title
     self.author = author
-    self.content = content
     self.timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     self.comments = {}
     self.votes = 0
@@ -22,6 +21,9 @@ class Card:
 
   def get_title(self):
     return self.title
+
+  def update_timestamp(self):
+    self.timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
   def get_author(self):
     return self.author

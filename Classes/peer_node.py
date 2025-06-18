@@ -34,6 +34,7 @@ class PeerNode:
         self.pongs_received = {}  # ping_id: list of pong info (optional, for storing results)
         self.peers_lock = threading.Lock()
         self.routing_lock = threading.Lock()
+        self.pong_lock = threading.Lock()
 
         # combined_host_port = f"{host}:{port}"
         # self.node_id=hashlib.sha256(combined_host_port.encode()).hexdigest() ## Id of node is hash of ip and port
@@ -252,6 +253,7 @@ class PeerNode:
                 other_id = data.get("node_id")
                 reach_host = data.get("host")
                 reach_port = data.get("port")
+                payload = data.get('payload')
 
                 match msg_type:
                     case MessageType.DATA_REQUEST:
@@ -262,6 +264,7 @@ class PeerNode:
                         # process incoming data
                     case MessageType.DATA_UPDATE:
                         print("Data update received.")
+                        self.data_update_handler(other_id, payload, reach_host, reach_port)
                         # update local data
                     case MessageType.PING:
                         print("Received PING.")
@@ -328,3 +331,62 @@ class PeerNode:
         if not self.super_peer:
             self.super_peer = True
             self.board = Board(title, keywords)
+
+
+
+    # -------------------- BOARD / DATA Handler --------------------
+    def data_update_handler(self, other_id: str, payload: list[dict], req_host, req_port):
+        '''
+        payload shoul look something like this
+        [{
+        board: title,
+        type: card comment etc
+        c_title:,
+        }]
+
+        :param other_id:
+        :param payload:
+        :return:
+        '''
+
+        # only manipulate board if super peer and a board exists
+        if not self.super_peer or self.board is None:
+            return
+
+        for entry in payload:
+            board_title = entry.get('board', "")
+            content_title = entry.get('title', "")
+            c_type = entry.get("type", "")
+
+            if board_title == "" or content_title == "" or self.board.get_title() != board_title or c_type != "card":
+                pass
+                # TODO: print an error
+            else:
+                self.board.update_reference(other_id, content_title, host=req_host, port=req_port)
+
+
+    def update_data_req(self, board_title: str, content_title: str, c_type: str = "card"):
+        # eventuell hier noch eine ping id mit rein legen oder soo
+
+        payload = [
+            {
+                'board': str(board_title),
+                'title': str(content_title),
+                'type': str(c_type)
+            }
+        ]
+
+        with self.pong_lock:
+            # TODO: auf mehrere Auswahlmöglichkeiten erweitern
+            for pong_row in self.pongs_received.values():
+                for pong in pong_row:
+                    if pong.get("board_title") == board_title:
+                        host = pong.get("responder_host")
+                        port = pong.get("responder_port")
+
+
+
+                        conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        conn.connect((host, port))
+                        data = create_packet(MessageType.DATA_UPDATE, self.node_id, self.host, self.port, self.super_peer, payload)
+                        send_packet(data, conn)

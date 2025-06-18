@@ -19,6 +19,11 @@ def join_network():
         nodes.append(node)
         node.start()
         node.do_bootstrap()
+
+        node.issue_search_request(["world"])
+
+        node.update_data_req("yolo", "node" + str(i))
+
         time.sleep(1)
 
     return

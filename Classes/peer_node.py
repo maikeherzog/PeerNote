@@ -1,14 +1,7 @@
-import socket
-import struct
-import threading
-import json
-import hashlib
 import time
-from datetime import datetime
 import uuid
 import random
 
-import ipaddress
 from collections import deque
 from Classes.Board import Board
 from Classes.peer_message_handler import *
@@ -32,9 +25,16 @@ class PeerNode:
         else:
             self.bootstrap = False
         # max number of active tcp connections
-        self.max_connections = 5
+        self.max_connections = 100
 
         self.max_total_conn = 10
+
+
+        # Data structures for routing using ping and pong
+        self.routing_table = {}  # ping_id: (conn, timestamp)
+        self.pongs_received = {}  # ping_id: list of pong info (optional, for storing results)
+        self.peers_lock = threading.Lock()
+        self.routing_lock = threading.Lock()
 
         # combined_host_port = f"{host}:{port}"
         # self.node_id=hashlib.sha256(combined_host_port.encode()).hexdigest() ## Id of node is hash of ip and port
@@ -52,8 +52,14 @@ class PeerNode:
         self.super_peer = super_peer
 
         # if set super peer there should be at least an empty board TODO
-        self.board = board
+        if self.bootstrap and board is None:
+            self.board = Board("default", {""})
+        else:
+            self.board = board
         print(f"Node {self.node_id} initialized at {self.host}:{self.port}")
+
+
+
 
     ### Node Properties
     def get_id(self):
@@ -88,7 +94,7 @@ class PeerNode:
         while self.running:
             try:
                 conn, addr = self.server_socket.accept()
-                print(f"Incoming connection from {addr}")
+                print(f"{self.host}:{self.port}: incoming connection from {addr}")
                 # Handle connection in a new thread
                 threading.Thread(target=self._handle_peer_connection, args=(conn, addr), daemon=True).start()
             except Exception as e:
@@ -102,16 +108,18 @@ class PeerNode:
             return
 
         # add to own peer list if other_id is not in peer list
-        if other_id not in self.peers.keys() and self.connect(other_id, host, port):
-            self.peers[other_id] = (host, port, True)
+        with self.peers_lock:
+            if other_id not in self.peers.keys() and self.connect(other_id, host, port):
+                self.peers[other_id] = (host, port, True)
 
         try:
             # Filter nur Super-Peers
-            super_peers = [
-                {"node_id": peer_id, "host": host, "port": port}
-                for peer_id, (host, port, is_super) in self.peers.items()
-                if is_super and peer_id != other_id
-            ]
+            with self.peers_lock:
+                super_peers = [
+                    {"node_id": peer_id, "host": host, "port": port}
+                    for peer_id, (host, port, is_super) in self.peers.items()
+                    if is_super and peer_id != other_id
+                ]
             if self.bootstrap:
                 super_peers.append({
                     'node_id': self.node_id,
@@ -224,10 +232,11 @@ class PeerNode:
         # avoid using self.peers because it does not allow to change size during iteration
 
         # copy peers into deque
-        queue = deque(self.peers.items())
+        with self.peers_lock:
+            queue = deque(self.peers.items())
 
-        # copy to keep track of visited and to be visited peers
-        visited = list(self.peers.keys())
+            # copy to keep track of visited and to be visited peers
+            visited = list(self.peers.keys())
 
         # 'iterate' through all peers
         while queue:
@@ -258,12 +267,13 @@ class PeerNode:
                 self.send_close(conn)
 
             # add possible new peers - TODO: visited as set
-            for new_peer_id, new_peer_info in self.peers.items():
-                if new_peer_id not in visited and new_peer_id != self.node_id:
-                    visited.append(new_peer_id)
-                    queue.append((new_peer_id, new_peer_info))
+            with self.peers_lock:
+                for new_peer_id, new_peer_info in self.peers.items():
+                    if new_peer_id not in visited and new_peer_id != self.node_id:
+                        visited.append(new_peer_id)
+                        queue.append((new_peer_id, new_peer_info))
 
-    def bootstrap(self):
+    def do_bootstrap(self):
         '''
         This function shall work for simple peers to bootstrap to the network, in order to do this just try to connect
         with bootstrap peer, if successful connected add to peerslist as default peer. Superpeers may not need to use this.
@@ -273,42 +283,65 @@ class PeerNode:
         '''
 
         try:
-            conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-            # if connection successful (no error) ping bootstrap
-            conn.connect(BOOTSTRAP)
-
-            data = create_packet(MessageType.PING, self.node_id, self.host, self.port, self.super_peer, ["default"])
-            send_packet(data, conn)
-
-            # receive response as pong
-            data: dict = json.loads(receive_packet(conn))
-
-            match MessageType(data.get("type", "error")):
-
-                case MessageType.PONG:
-                    # TODO add at leat bootstrap peer to peers list and maybe all other boards ( depending on implementation)
-                    return
-                case _:
-                    raise Exception("unexpected behavior, bootstap peer may be down")
+            if len(self.peers.items()) == 0:
+                self.request_peers()
+            # perform first ping in order to validate that everything is working
+            self.issue_search_request([""])
 
         except Exception as e:
             raise e
 
     def issue_search_request(self, keywords: list):
-        conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        ping_id = str(uuid.uuid4())
+        ttl = 5
 
-        # TODO: don't do bootstrap, do other peers from self.peers
-        conn.connect(BOOTSTRAP)
+        payload = {
+            "ping_id": ping_id,
+            "origin_id": self.node_id,
+            "origin_host": self.host,
+            "origin_port": self.port,
+            "ttl": ttl,
+            "keywords": keywords,
+        }
 
-        data = create_packet(MessageType.PING, self.node_id, self.host, self.port, self.super_peer, [
-            {
-                "path": self.node_id,
-                "host": self.host,
-                "port": self.port,
-                "ttl": 5,
-            }
-        ])
+        self.pongs_received[ping_id] = []  # optional: zum Speichern der Ergebnisse
+
+        with self.peers_lock:
+            for peer_id, (host, port, _) in self.peers.items():
+                try:
+                    conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    conn.connect((host, port))
+                    packet = create_packet(MessageType.PING, self.node_id, self.host, self.port, self.super_peer, payload)
+                    send_packet(packet, conn)
+                    # optional das ganze hierdurch handeln lassen
+                    # threading.Thread(target=self._handle_peer_connection, args=(conn, (host, port)), daemon=True).start()
+                except Exception as e:
+                    print(f"Error sending ping to {host}:{port} – {e}")
+
+
+    def handle_pong(self, data):
+        payload = data.get("payload", {})
+        ping_id = payload.get("ping_id")
+        responder_info = {
+            "responder_id": payload.get("responder_id"),
+            "responder_host": payload.get("responder_host"),
+            "responder_port": payload.get("responder_port")
+        }
+
+        # das sollte der Regelfall sein
+        if ping_id in self.pongs_received:
+            self.pongs_received[ping_id].append(responder_info)
+            print(f"Stored PONG from {responder_info['responder_id']}")
+
+        elif ping_id in self.routing_table:
+            prev_conn, _ = self.routing_table[ping_id]
+            try:
+                pong_packet = create_packet(MessageType.PONG, self.node_id, self.host, self.port, self.super_peer,
+                                            payload)
+                send_packet(pong_packet, prev_conn)
+            except Exception as e:
+                print(f"Failed to route PONG: {e}")
+
 
     def _handle_peer_connection(self, conn, addr):
         """Handles a single client connection (a peer)."""
@@ -343,9 +376,11 @@ class PeerNode:
                         # update local data
                     case MessageType.PING:
                         print("Received PING.")
+                        self.handle_ping(conn, data)
                         # reply with PONG
                     case MessageType.PONG:
                         print("Received PONG.")
+                        self.handle_pong(data)
                         # maybe update liveness
                     case MessageType.GET_PEERS:
                         self._get_peers_handler(conn, other_id, reach_host, reach_port)
@@ -378,7 +413,7 @@ class PeerNode:
 
 
             except Exception as e:
-                print(f"Error host: {self.host}:{self.port} handling client connection from {addr}: {e}")
+                print(f"Error host: {self.host}:{self.port} handling client connection from {addr} with msg_type: {msg_type}: {e}")
             finally:
                 conn.close()
                 # if finally executes break or return the error is discarded (maybe think about this here??!?)
@@ -397,159 +432,217 @@ class PeerNode:
             conn.shutdown(socket.SHUT_RDWR)
             conn.close()
 
-    def _listen_to_peer(self, peer_id, sock):
-        """Listens for messages from a specific connected peer."""
-        try:
-            while True:
-                # was passiert wenn die daten größer sind als 4096????????????????
-                data = sock.recv(4096)
-                if not data:
-                    print(f"Peer {peer_id} disconnected during listen.")
-                    #self.remove_peer(peer_id)                                  #### ???
-                    break
-                message = json.loads(data.decode('utf-8'))
-                self.process_message(peer_id, message)
-        except Exception as e:
-            print(f"Error listening to peer {peer_id}: {e}")
-            self.remove_peer(peer_id)
+    def handle_ping(self, conn, data: dict):
+        print("Received PING.")
 
-    def add_peer(self, peer_id, socket_obj, address_tuple):
-        """Adds a new peer to the node's peer list."""
-        if peer_id not in self.peers:
-            self.peers[peer_id] = (socket_obj, address_tuple)
-            print(f"Added peer: {peer_id} from {address_tuple}")
+        # prepare data for another ping message or pong message
+        payload = data.get("payload", {})
+        ping_id = payload.get("ping_id")
+        ttl = payload.get("ttl", 0)
+        keywords = set(payload.get("keywords", []))
+        origin_id = payload.get("origin_id")
+        origin_host = payload.get("origin_host")
+        origin_port = payload.get("origin_port")
+
+        if ping_id in self.routing_table:
+            # ignore duplicate ping
+            return
         else:
-            print(f"Peer {peer_id} already in peer list.")
+            self.routing_table[ping_id] = (conn, time.time())
 
-    def remove_peer(self, peer_id):
-        """Removes a peer from the node's peer list."""
-        if peer_id in self.peers:
-            socket_obj, _ = self.peers[peer_id]
+        # Match prüfen
+        if self.board and self.board.query_matches(keywords):
+            pong_payload = {
+                "ping_id": ping_id,
+                "responder_id": self.node_id,
+                "responder_host": self.host,
+                "responder_port": self.port,
+            }
+
             try:
-                socket_obj.close()
+                pong_conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                pong_conn.connect((origin_host, origin_port))
+                pong_packet = create_packet(MessageType.PONG, self.node_id, self.host, self.port, self.super_peer,
+                                            pong_payload)
+                send_packet(pong_packet, pong_conn)
+                pong_conn.close()
             except Exception as e:
-                print(f"Error closing socket for peer {peer_id}: {e}")
-            del self.peers[peer_id]
-            print(f"Removed peer: {peer_id}")
+                print(f"Failed to send PONG to origin: {e}")
 
-    def send_message_to_peer(self, peer_id, message_type, content=None):
-        """Sends a message to a specific peer."""
-        if peer_id in self.peers:
-            sock, _ = self.peers[peer_id]
-            try:
-                full_message = {'sender_id': str(self.node_id), 'type': message_type, 'content': content}
-                sock.sendall(json.dumps(full_message).encode('utf-8'))
-                print(f"Sent '{message_type}' to {peer_id}")
-                time.sleep(2)
-            except Exception as e:
-                print(f"Error sending message to {peer_id}: {e}")
-                self.remove_peer(peer_id)
-        else:
-            print(f"Peer {peer_id} not found in peer list.")
+        # Weiterleiten an andere Peers
+        if ttl > 1:
+            new_payload = payload.copy()
+            new_payload["ttl"] = ttl - 1
 
-    def process_message(self, sender_id, message):
-        """Processes an incoming message from a peer."""
-        message_type = message.get('type')
-        content = message.get('content')
-        print(f"Node {self.node_id} received message from {sender_id}: Type='{message_type}', Content='{content}'")
+            with self.peers_lock:
+                peers = deque(self.peers.items())
 
-        match message_type:
-            case 'text_message':
-                print(f"  > Text message: {content}")
-            case 'data_request':
-                key = content.get('key')
-                if key in self.data_store:
-                    self.send_message_to_peer(sender_id, 'data_response', {'key': key, 'value': self.data_store[key]})
-                else:
-                    self.send_message_to_peer(sender_id, 'data_response',
-                                              {'key': key, 'value': None, 'error': 'not_found'})
-            case 'data_update':
-                key = content.get('key')
-                value = content.get('value')
+            while peers:
+                peer_id, (host, port, _) = peers.popleft()
 
-                # check if key is in data_store
-                if key in self.data_store.keys():
-                    self.data_store[key] = value
-                    print(f"  > Stored data: {key} = {value}")
-                # Optionally, rebroadcast the update to other peers
-                # self.broadcast_message('data_update', content)
-            case 'get_peers':
-                # Send back a list of this node's known peers (host, port)
-                peer_addresses = [peer_info[1] for peer_info in self.peers.values()]
-                self.send_message_to_peer(sender_id, 'peer_list', {'peers': peer_addresses})
-            case 'peer_list':
-                # Add newly discovered peers to our list
-                new_peers = content.get('peers', [])
-                for peer_host, peer_port in new_peers:
-                    if (peer_host, peer_port) != (self.host, self.port) and (peer_host, peer_port) not in [p[1] for p in
-                                                                                                           self.peers.values()]:
-                        print(f"Attempting to connect to new peer: {peer_host}:{peer_port}")
-                        self.connect_to_peer(peer_host, peer_port)
-            case 'ping':
-                new_ttl = content.get('ttl') - 1
-                new_path = content.get('path') + f", {self.node_id}"
+                if peer_id == data["node_id"]:
+                    continue  # Don't send back to sender
 
-                if new_ttl > 0:
-                    ### Send ping to all addresses which are not included in ping path
-                    ids_of_own_peers = set([str(key) for key in self.peers.keys()])
-                    ids_of_peers_in_ping_path = set(content.get('path').split(", "))
+                try:
+                    fwd_conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    fwd_conn.connect((host, port))
+                    fwd_packet = create_packet(MessageType.PING, self.node_id, self.host, self.port, self.super_peer,
+                                               new_payload)
+                    send_packet(fwd_packet, fwd_conn)
+                    fwd_conn.close()
+                except Exception as e:
+                    print(f"Failed to forward PING to {host}:{port} from sender {self.host}:{self.port}: {e}")
 
-                    address_ids = ids_of_own_peers.difference(ids_of_peers_in_ping_path)
-                    addresses = [key for key, value in self.peers.items() if str(key) in address_ids]
-                    if bool(addresses):
-                        for send_to in addresses:
-                            self.send_message_to_peer(send_to, 'ping', {'path': new_path, 'ttl': new_ttl})
-                        print(f"Ping path: {new_path}")
-                    else:
-                        peer_addresses = [peer_info[1] for peer_info in self.peers.values()]
-                        self.send_message_to_peer(sender_id, 'pong',
-                                                  {'path': content.get('path'), 'peers': peer_addresses})
-                        print(f"End of ping path: {new_path}")
-                else:
-                    peer_addresses = [peer_info[1] for peer_info in self.peers.values()]
-                    peer_id = content.get('path').split(", ").pop(-1)
-                    self.send_message_to_peer(sender_id, 'pong', {'path': content.get('path'), 'peers': peer_addresses})
-                    print(f"End of ping path: {content.get('path')}, peer_id: {peer_id}")
 
-            case 'pong':
-                if content.get('path') != "":
-                    peer_id = content.get('path').split(", ").pop(-1)
-                    send_to = [key for key, value in self.peers.items() if str(key) == peer_id]
-                    peer_addresses = [peer_info[1] for peer_info in self.peers.values()]
-                    self.send_message_to_peer(send_to, 'pong', {'path': content.get('path'),
-                                                                'peers': (peer_addresses).extend(content.get('peers'))})
-                    path = content.get('path')
-                    print(f"Pong path: {path}")
-                else:
-                    new_peers = content.get('peers')
-
-                    count = self.max_connections
-                    while count > 0:
-                        new_peer = random.choice(new_peers)
-                        peer_host, peer_port = new_peer
-                        if (peer_host, peer_port) != (self.host, self.port) and (peer_host, peer_port) not in [p[1] for
-                                                                                                               p in
-                                                                                                               self.peers.values()]:
-                            print(f"End of Pong: Attempting to connect to new peer: {peer_host}:{peer_port}")
-                            if self.connect_to_peer(peer_host, peer_port):
-                                count -= 1
-                            new_peers.remove(new_peer)
-            case 'update':
-                if self.super_peer is None or self.board is None:
-                    return  # bzw antworten das man dafür nicht zuständig ist
-                # get key entry which shall be updated
-                key = content['key']
+    # def _listen_to_peer(self, peer_id, sock):
+    #     """Listens for messages from a specific connected peer."""
+    #     try:
+    #         while True:
+    #             # was passiert wenn die daten größer sind als 4096????????????????
+    #             data = sock.recv(4096)
+    #             if not data:
+    #                 print(f"Peer {peer_id} disconnected during listen.")
+    #                 #self.remove_peer(peer_id)                                  #### ???
+    #                 break
+    #             message = json.loads(data.decode('utf-8'))
+    #             self.process_message(peer_id, message)
+    #     except Exception as e:
+    #         print(f"Error listening to peer {peer_id}: {e}")
+    #         self.remove_peer(peer_id)
+    #
+    # def add_peer(self, peer_id, socket_obj, address_tuple):
+    #     """Adds a new peer to the node's peer list."""
+    #     if peer_id not in self.peers:
+    #         self.peers[peer_id] = (socket_obj, address_tuple)
+    #         print(f"Added peer: {peer_id} from {address_tuple}")
+    #     else:
+    #         print(f"Peer {peer_id} already in peer list.")
+    #
+    # def remove_peer(self, peer_id):
+    #     """Removes a peer from the node's peer list."""
+    #     if peer_id in self.peers:
+    #         socket_obj, _ = self.peers[peer_id]
+    #         try:
+    #             socket_obj.close()
+    #         except Exception as e:
+    #             print(f"Error closing socket for peer {peer_id}: {e}")
+    #         del self.peers[peer_id]
+    #         print(f"Removed peer: {peer_id}")
+    #
+    # def send_message_to_peer(self, peer_id, message_type, content=None):
+    #     """Sends a message to a specific peer."""
+    #     if peer_id in self.peers:
+    #         sock, _ = self.peers[peer_id]
+    #         try:
+    #             full_message = {'sender_id': str(self.node_id), 'type': message_type, 'content': content}
+    #             sock.sendall(json.dumps(full_message).encode('utf-8'))
+    #             print(f"Sent '{message_type}' to {peer_id}")
+    #             time.sleep(2)
+    #         except Exception as e:
+    #             print(f"Error sending message to {peer_id}: {e}")
+    #             self.remove_peer(peer_id)
+    #     else:
+    #         print(f"Peer {peer_id} not found in peer list.")
+    #
+    # def process_message(self, sender_id, message):
+    #     """Processes an incoming message from a peer."""
+    #     message_type = message.get('type')
+    #     content = message.get('content')
+    #     print(f"Node {self.node_id} received message from {sender_id}: Type='{message_type}', Content='{content}'")
+    #
+    #     match message_type:
+    #         case 'text_message':
+    #             print(f"  > Text message: {content}")
+    #         case 'data_request':
+    #             key = content.get('key')
+    #             if key in self.data_store:
+    #                 self.send_message_to_peer(sender_id, 'data_response', {'key': key, 'value': self.data_store[key]})
+    #             else:
+    #                 self.send_message_to_peer(sender_id, 'data_response',
+    #                                           {'key': key, 'value': None, 'error': 'not_found'})
+    #         case 'data_update':
+    #             key = content.get('key')
+    #             value = content.get('value')
+    #
+    #             # check if key is in data_store
+    #             if key in self.data_store.keys():
+    #                 self.data_store[key] = value
+    #                 print(f"  > Stored data: {key} = {value}")
+    #             # Optionally, rebroadcast the update to other peers
+    #             # self.broadcast_message('data_update', content)
+    #         case 'get_peers':
+    #             # Send back a list of this node's known peers (host, port)
+    #             peer_addresses = [peer_info[1] for peer_info in self.peers.values()]
+    #             self.send_message_to_peer(sender_id, 'peer_list', {'peers': peer_addresses})
+    #         case 'peer_list':
+    #             # Add newly discovered peers to our list
+    #             new_peers = content.get('peers', [])
+    #             for peer_host, peer_port in new_peers:
+    #                 if (peer_host, peer_port) != (self.host, self.port) and (peer_host, peer_port) not in [p[1] for p in
+    #                                                                                                        self.peers.values()]:
+    #                     print(f"Attempting to connect to new peer: {peer_host}:{peer_port}")
+    #                     self.connect_to_peer(peer_host, peer_port)
+    #         case 'ping':
+    #             new_ttl = content.get('ttl') - 1
+    #             new_path = content.get('path') + f", {self.node_id}"
+    #
+    #             if new_ttl > 0:
+    #                 ### Send ping to all addresses which are not included in ping path
+    #                 ids_of_own_peers = set([str(key) for key in self.peers.keys()])
+    #                 ids_of_peers_in_ping_path = set(content.get('path').split(", "))
+    #
+    #                 address_ids = ids_of_own_peers.difference(ids_of_peers_in_ping_path)
+    #                 addresses = [key for key, value in self.peers.items() if str(key) in address_ids]
+    #                 if bool(addresses):
+    #                     for send_to in addresses:
+    #                         self.send_message_to_peer(send_to, 'ping', {'path': new_path, 'ttl': new_ttl})
+    #                     print(f"Ping path: {new_path}")
+    #                 else:
+    #                     peer_addresses = [peer_info[1] for peer_info in self.peers.values()]
+    #                     self.send_message_to_peer(sender_id, 'pong',
+    #                                               {'path': content.get('path'), 'peers': peer_addresses})
+    #                     print(f"End of ping path: {new_path}")
+    #             else:
+    #                 peer_addresses = [peer_info[1] for peer_info in self.peers.values()]
+    #                 peer_id = content.get('path').split(", ").pop(-1)
+    #                 self.send_message_to_peer(sender_id, 'pong', {'path': content.get('path'), 'peers': peer_addresses})
+    #                 print(f"End of ping path: {content.get('path')}, peer_id: {peer_id}")
+    #
+    #         case 'pong':
+    #             if content.get('path') != "":
+    #                 peer_id = content.get('path').split(", ").pop(-1)
+    #                 send_to = [key for key, value in self.peers.items() if str(key) == peer_id]
+    #                 peer_addresses = [peer_info[1] for peer_info in self.peers.values()]
+    #                 self.send_message_to_peer(send_to, 'pong', {'path': content.get('path'),
+    #                                                             'peers': (peer_addresses).extend(content.get('peers'))})
+    #                 path = content.get('path')
+    #                 print(f"Pong path: {path}")
+    #             else:
+    #                 new_peers = content.get('peers')
+    #
+    #                 count = self.max_connections
+    #                 while count > 0:
+    #                     new_peer = random.choice(new_peers)
+    #                     peer_host, peer_port = new_peer
+    #                     if (peer_host, peer_port) != (self.host, self.port) and (peer_host, peer_port) not in [p[1] for
+    #                                                                                                            p in
+    #                                                                                                            self.peers.values()]:
+    #                         print(f"End of Pong: Attempting to connect to new peer: {peer_host}:{peer_port}")
+    #                         if self.connect_to_peer(peer_host, peer_port):
+    #                             count -= 1
+    #                         new_peers.remove(new_peer)
+    #         case 'update':
+    #             if self.super_peer is None or self.board is None:
+    #                 return  # bzw antworten das man dafür nicht zuständig ist
+    #             # get key entry which shall be updated
+    #             key = content['key']
 
     def stop(self):
         """Stops the node and closes all connections."""
         self.running = False
+        self.peers.clear()
         if self.server_socket:
-            print(f"Closing server socket for Node {self.node_id}.")
             self.server_socket.close()
-        for peer_id in list(self.peers.keys()):
-            self.remove_peer(peer_id)
-        print(f"Node {self.node_id} stopped.")
-
     ### Data
     def add_data(self, data):
         self.data_store[data.get_id()] = data

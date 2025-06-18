@@ -127,6 +127,7 @@ class Board:
         '''
         for key in keywords:
             if key in self.keywords:
+                print("Return true")
                 return True
         return False
 

@@ -52,6 +52,7 @@ def main():
     print("boot")
     node2.request_peers()
     time.sleep(1)
+
     print("node2")
     node3.request_peers()
     time.sleep(1)
@@ -72,16 +73,17 @@ def main():
     node6 = PeerNode("127.0.0.1", 8018, super_peer=True)
     # startup node communication
     node6.start()
-    node6.peers[node5.node_id] = (node5.host, node5.port, True)
+    # node6.peers[node5.node_id] = (node5.host, node5.port, True)
     time.sleep(1)
-    node6.request_peers()
-    return
+    node6.do_bootstrap()
 
     # Join network
     # join_network(node6)
 
+    bootstrap.stop()
+
+    time.sleep(4)
     print("Stopping nodes...")
-    node1.stop()
     node2.stop()
     node3.stop()
     node4.stop()

@@ -15,6 +15,8 @@ class Card:
     self.timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     self.comments = {}
     self.votes = 0
+    self.host = host
+    self.port = port
 
   def get_id(self):
     return self.id

@@ -13,6 +13,7 @@ So stelle ich mir das ganze bisher vor:
 class MessageType(str, Enum):
     # request bulletin board html???
     DATA_REQUEST = "data_request"
+    DATA_PEER_REQUEST = "data_peer_request"
     # respond with data
     DATA_RESPONSE = "data_response"
     # update soft state

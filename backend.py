@@ -21,12 +21,20 @@ def join_network():
         node.do_bootstrap()
 
         node.issue_search_request(["world"])
-
-        node.update_data_req("yolo", "node" + str(i))
-
         time.sleep(1)
 
+        node.add_content_card(content=f"node{i} happy birthday", title=f"node{i}", board="yolo")
+        node.update_data_req("yolo", "node" + str(i))
+        time.sleep(1)
+
+    print("send request\n\n\n")
+    nodes[5].send_data_request("127.0.0.1",8003, board_title="yolo", request_type="meta")
     return
+
+
+
+
+
 
 def main():
     global bootstrapping_nodes
@@ -38,6 +46,7 @@ def main():
     node4 = PeerNode("127.0.0.1", 8004, super_peer=True)
     node5 = PeerNode("127.0.0.1", 8005, super_peer=True)
 
+    print(bootstrap.board.get_card_references())
     bootstrap.start()
     node2.start()
     node3.start()
@@ -85,6 +94,11 @@ def main():
     # Join network
     join_network()
 
+    node6.add_content_card(content="YOLOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO", title="noch mehr yolo", board="yolo")
+    time.sleep(1)
+    node6.update_data_req(board_title="yolo", content_title="noch mehr yolo")
+    time.sleep(1)
+    print(bootstrap.send_data_request("127.0.0.1", 8003, request_type="meta", board_title="yolo"))
     bootstrap.stop()
 
     time.sleep(4)

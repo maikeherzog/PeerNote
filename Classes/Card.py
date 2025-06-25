@@ -11,6 +11,7 @@ class Card:
         self.comments = {}
         self.votes = 0
         self.host = host
+        self.content = ""
         self.port = port
 
     def get_id(self):

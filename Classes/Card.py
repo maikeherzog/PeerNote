@@ -12,7 +12,7 @@ class Card:
     self.id = str(uuid.uuid4())
     self.title = title
     self.author = author
-    self.timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    self.timestamp: datetime = datetime.now()
     self.comments = {}
     self.votes = 0
     self.host = host

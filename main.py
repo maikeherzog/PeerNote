@@ -1,7 +1,11 @@
 import time
+import sys
+from threading import Thread
 
 from Backend import peer_node as pn
 import socket
+
+from flask import Flask, render_template, app
 
 
 def get_ip():
@@ -17,8 +21,6 @@ def get_ip():
         s.close()
     return IP
 
-
-import sys
 
 def check_flags():
     # Ignoriere das erste Argument (Skriptname)
@@ -39,28 +41,45 @@ def check_flags():
     return 0
 
 
-# node of this peer
-match check_flags():
-    case 1:
-        node = pn.PeerNode(pn.BOOTSTRAP[0], port=pn.BOOTSTRAP[1], super_peer=True)
-    case 2:
-        node = pn.PeerNode(get_ip(), port=0, super_peer=True)
-    # DEFAULT
-    case _:
-        node = pn.PeerNode(get_ip(), port=0)
+def main():
+    ip = get_ip()
+    print(ip)
+    # node of this peer
+    match check_flags():
+        case 1:
+            node = pn.PeerNode(pn.BOOTSTRAP[0], port=pn.BOOTSTRAP[1], super_peer=True)
+        case 2:
+            node = pn.PeerNode(ip, port=0, super_peer=True)
+        # DEFAULT
+        case _:
+            node = pn.PeerNode(ip, port=0)
+
+    # start node
+    node.start()
+
+    # bootstrap node
+    node.do_bootstrap()
+
+    if node.bootstrap:
+        while True:
+            time.sleep(10)
+    else:
+        while len(node.peers) < 5:
+            node.request_peers()
+            time.sleep(1)
+
+def start_background_thread():
+    Thread(target=main, daemon=True).start()
 
 
-# start node
-node.start()
+app = Flask(__name__)
+start_background_thread()
+# app.run(debug=True)
 
-# bootstrap node
-node.do_bootstrap()
+@app.route("/")
+def home():
+    return render_template("index.html")  # Renders templates/index.html
 
 
-if node.bootstrap:
-    while True:
-        time.sleep(10)
-else:
-    while len(node.peers) < 5:
-        node.request_peers()
-        time.sleep(1)
+if __name__ == "__main__":
+    app.run(debug=True)

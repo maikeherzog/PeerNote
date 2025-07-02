@@ -3,7 +3,7 @@ import threading
 from datetime import datetime, timedelta
 import uuid
 
-from Classes.Card import Card
+from Backend.Card import Card
 
 
 class Board:

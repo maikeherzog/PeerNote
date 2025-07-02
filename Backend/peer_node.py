@@ -4,11 +4,11 @@ import uuid
 import random
 
 from collections import deque
-from Classes.Board import Board
-from Classes.peer_message_handler import *
+from Backend.Board import Board
+from Backend.peer_message_handler import *
 from message_type import MessageType
 
-BOOTSTRAP = ("127.0.0.1", 8001)
+BOOTSTRAP = ("192.168.2.212", 8001)
 
 
 class PeerNode:
@@ -16,8 +16,8 @@ class PeerNode:
 
     def __init__(self, host: str = "127.0.0.1", port: int = 8000, super_peer: bool = False, board: Board = None):
 
-        if host == "0.0.0.0" or host == "" or port == 0:
-            raise Exception("0.0.0.0 and port 0 is not supported")
+        # if host == "0.0.0.0" or host == "" or port == 0:
+        #     raise Exception("0.0.0.0 and port 0 is not supported")
         self.host: str = host
         self.port: int = port
 
@@ -83,7 +83,8 @@ class PeerNode:
         self.server_socket: socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_socket.bind((self.host, self.port))
-        print(self.server_socket.getsockname())
+
+        self.port = self.server_socket.getsockname()[1]
         self.server_socket.listen(self.max_connections)
         self.running: bool = True
         print(f"Node {self.node_id} listening on {self.host}:{self.port}")
@@ -207,7 +208,8 @@ class PeerNode:
         :return:
         '''
 
-        self.connect(BOOTSTRAP[0], BOOTSTRAP[1], True)
+        if not self.bootstrap:
+            self.connect(BOOTSTRAP[0], BOOTSTRAP[1], True)
 
     def issue_search_request(self, keywords: list):
         ping_id = str(uuid.uuid4())

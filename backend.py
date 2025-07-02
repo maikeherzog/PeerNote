@@ -1,14 +1,9 @@
-import socket
-import threading
-import json
-import hashlib
-import time
-from Classes.Board import Board
-from datetime import datetime
-import uuid
-import random
 
-from Classes.peer_node import PeerNode
+import time
+from Backend.Board import Board
+
+
+from Backend.peer_node import PeerNode
 
 ### Bootstrapping
 def join_network():

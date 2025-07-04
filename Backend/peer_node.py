@@ -7,8 +7,7 @@ from collections import deque
 from Backend.Board import Board
 from Backend.peer_message_handler import *
 from message_type import MessageType
-
-BOOTSTRAP = ("127.0.0.1", 8001)
+from Backend.config import BOOTSTRAP
 
 
 class PeerNode:
@@ -118,7 +117,6 @@ class PeerNode:
 
             if response is not None:
                 resp_data = json.loads(response)
-                print(resp_data)
                 res = resp_data.get("type") == MessageType.CONNECT_RESPONSE.value and resp_data.get(
                     'node_id') != self.node_id
                 if res and add_to_peers:
@@ -209,7 +207,7 @@ class PeerNode:
         '''
 
         if not self.bootstrap:
-            self.connect(BOOTSTRAP[0], BOOTSTRAP[1], True)
+            return self.connect(BOOTSTRAP[0], BOOTSTRAP[1], True)
 
     def issue_search_request(self, keywords: list):
         ping_id = str(uuid.uuid4())

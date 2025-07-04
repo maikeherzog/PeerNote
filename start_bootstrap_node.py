@@ -1,12 +1,12 @@
-from Classes.Peer_node import Peer_node
+from Backend.peer_node import PeerNode
+from Backend.config import BOOTSTRAP
 import time
 import webbrowser
 import subprocess
 import os
 
 # IP-Adresse und Port des Bootstrap-Nodes
-BOOTSTRAP_IP = "--bootstrap-ip--"  # Hier die tatsächliche IP-Adresse eintragen
-BOOTSTRAP_PORT = 8001
+BOOTSTRAP_IP, BOOTSTRAP_PORT = BOOTSTRAP
 
 def start_frontend():
     # Starte einfachen Webserver im Hintergrund
@@ -17,7 +17,7 @@ def start_frontend():
     webbrowser.open("http://localhost:8080")
 
 def main():
-    node = Peer_node(BOOTSTRAP_IP, BOOTSTRAP_PORT)
+    node = PeerNode(BOOTSTRAP_IP, BOOTSTRAP_PORT)
     node.start()
     print(f"[BOOTSTRAP NODE] Running at {BOOTSTRAP_IP}:{BOOTSTRAP_PORT}")
     start_frontend()

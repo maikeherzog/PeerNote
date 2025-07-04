@@ -8,7 +8,7 @@ from Backend.Board import Board
 from Backend.peer_message_handler import *
 from message_type import MessageType
 
-BOOTSTRAP = ("192.168.2.212", 8001)
+BOOTSTRAP = ("127.0.0.1", 8001)
 
 
 class PeerNode:

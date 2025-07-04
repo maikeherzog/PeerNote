@@ -41,7 +41,6 @@ def main():
     node4 = PeerNode("127.0.0.1", 8004, super_peer=True)
     node5 = PeerNode("127.0.0.1", 8005, super_peer=True)
 
-    print(bootstrap.board.get_card_references())
     bootstrap.start()
     node2.start()
     node3.start()

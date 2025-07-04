@@ -1,7 +1,6 @@
 from datetime import datetime
 import uuid
 
-
 class Card:
     def __init__(self, title, author, host, port):
         self.id = str(uuid.uuid4())
@@ -21,7 +20,7 @@ class Card:
         return self.title
 
     def update_timestamp(self):
-        self.timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.timestamp = datetime.now() #.strftime("%Y-%m-%d %H:%M:%S")
 
     def get_author(self):
         return self.author
@@ -30,7 +29,7 @@ class Card:
         return self.content
 
     def get_timestamp(self):
-        return self.timestamp
+        return self.timestamp.isoformat()
 
     def get_all_comments(self):
         return list(self.comments.values())

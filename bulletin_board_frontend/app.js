@@ -1,3 +1,24 @@
+let peerInfo = {
+  host: "localhost",  // fallback
+  port: 8005          // fallback
+};
+
+fetch("http://localhost:5000/peer_info")
+  .then(res => res.json())
+  .then(data => {
+    if (data.host && data.port) {
+      peerInfo.host = data.host;
+      peerInfo.port = data.port;
+      console.log("Peer-Info geladen:", peerInfo);
+    } else {
+      console.warn("Peer-Info unvollständig, Fallback wird verwendet.");
+    }
+  })
+  .catch(err => {
+    console.error("Fehler beim Laden von /peer_info:", err);
+  });
+
+
 // Multi-Board Bulletin Board Manager
 class BulletinBoardManager {
   constructor() {
@@ -383,11 +404,15 @@ class BulletinBoardManager {
       e.preventDefault();
 
       const newCard = {
-        id: Date.now(), // ID hinzufügen für eindeutige Identifikation
+        id: self.crypto.randomUUID(),                         // wie uuid.uuid4()
         title: document.getElementById('titleInput').value.trim(),
         author: document.getElementById('authorInput').value.trim(),
         content: document.getElementById('contentInput').value.trim(),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),                  // entspricht datetime.now().isoformat()
+        comments: {},                                         // leeres Objekt
+        votes: 0,                                             // Startwert
+        host: peerInfo.host,              // oder per fetch dynamisch setzen
+        port: peerInfo.port                                    // oder per fetch dynamisch setzen
       };
 
       if (!newCard.title || !newCard.author || !newCard.content) {

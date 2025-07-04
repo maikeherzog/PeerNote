@@ -104,3 +104,13 @@ def delete_card(card_id):
         json.dump(new_cards, f, ensure_ascii=False, indent=2)
 
     return jsonify({"status": "deleted"}), 200
+
+@app.route('/peer_info', methods=['GET'])
+def get_peer_info():
+    if peer_node is None:
+        return jsonify({"error": "PeerNode not initialized"}), 500
+
+    return jsonify({
+        "host": peer_node.get_host(),
+        "port": peer_node.get_port()
+    })

@@ -342,10 +342,14 @@ class PeerNode:
             self.server_socket.close()
 
     def set_super_peer(self, title, keywords):
+        print("set_super_peer called")
         # make code only available if the peer did not have super peer status yet
         if not self.super_peer:
             self.super_peer = True
             self.board = Board(title, keywords)
+            print(f"Peer is superpeer:{self.super_peer}")
+            return True
+        return false
 
     # -------------------- BOARD / DATA Handler --------------------
     def data_update_handler(self, other_id: str, payload: list[dict], req_host, req_port):
@@ -602,3 +606,6 @@ class PeerNode:
             board = "default"
         # very simple, maybe optimize
         self.data_store[title] = (content, board)
+
+
+

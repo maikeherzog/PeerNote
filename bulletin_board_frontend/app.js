@@ -48,9 +48,25 @@ class BulletinBoardManager {
   // Event Listeners initialisieren
   initializeEventListeners() {
     // Board Management
-    document.getElementById('createBoardBtn').addEventListener('click', () => {
-      document.getElementById('createBoardModal').classList.remove('hidden');
-    });
+  document.getElementById('createBoardBtn').addEventListener('click', () => {
+    const payload = {
+      title: "My Awesome Board",
+      keywords: ["fun", "chat", "random"]
+    };
+    fetch('http://localhost:5000/set_super_peer', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    })
+      .then(response => response.json())
+      .then(data => console.log('Antwort von Python:', data))
+      .catch(error => console.error('Fehler beim Aufruf von set_super_peer:', error));
+
+    document.getElementById('createBoardModal').classList.remove('hidden');
+  });
+
 
     document.getElementById('createBoardForm').addEventListener('submit', (e) => {
       e.preventDefault();

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bulletin Board Manager</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<!-- Board Navigation -->
+<section id="boardNav">
+    <div class="nav-header">
+        <h1 class="nav-title">Bulletin Boards</h1>
+        <button id="createBoardBtn">+ Neues Board</button>
+    </div>
+    <div class="board-search">
+        <input type="text" id="boardSearchInput" placeholder="Boards durchsuchen..." />
+    </div>
+    <div class="board-tabs" id="boardTabs">
+        <!-- Board Tabs werden hier dynamisch eingefügt -->
+    </div>
+</section>
+
+<!-- Search Bar -->
+<section id="searchBar">
+    <input type="text" id="searchInput" placeholder="Suche nach Titel, Autor oder Inhalt ..." />
+</section>
+
+<!-- Board Content -->
+<main id="board">
+    <!-- Die Karten werden hier dynamisch eingefügt -->
+</main>
+
+<!-- Add Card Button -->
+<button id="addCardBtn" title="Neue Karte hinzufügen">+</button>
+
+<!-- Create Board Modal -->
+<div id="createBoardModal" class="modal hidden">
+    <div class="modal-content">
+        <h2>Neues Board erstellen</h2>
+        <form id="createBoardForm">
+            <label for="boardNameInput">Board Name:</label>
+            <input type="text" id="boardNameInput" required placeholder="z.B. Arbeit, Privat, Ideen...">
+            <div class="buttons">
+                <button type="submit">Erstellen</button>
+                <button type="button" id="createBoardCancelBtn">Abbrechen</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add Card Modal -->
+<div id="modal" class="modal hidden">
+    <div class="modal-content">
+        <h2>Neue Karte hinzufügen</h2>
+        <form id="cardForm">
+            <label for="titleInput">Titel:</label>
+            <input type="text" id="titleInput" required>
+            <label for="authorInput">Autor:</label>
+            <input type="text" id="authorInput" required>
+            <label for="contentInput">Inhalt:</label>
+            <textarea id="contentInput" required></textarea>
+            <div class="buttons">
+                <button type="submit">Hinzufügen</button>
+                <button type="button" id="cancelBtn">Abbrechen</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Card Modal -->
+<div id="editModal" class="modal hidden">
+    <div class="modal-content">
+        <h2>Karte bearbeiten</h2>
+        <form id="editCardForm">
+            <label for="editTitleInput">Titel:</label>
+            <input type="text" id="editTitleInput" required>
+            <label for="editAuthorInput">Autor:</label>
+            <input type="text" id="editAuthorInput" required>
+            <label for="editContentInput">Inhalt:</label>
+            <textarea id="editContentInput" required></textarea>
+            <div class="buttons">
+                <button type="submit">Speichern</button>
+                <button type="button" id="editCancelBtn">Abbrechen</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

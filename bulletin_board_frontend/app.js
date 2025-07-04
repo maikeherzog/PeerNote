@@ -256,7 +256,14 @@ class BulletinBoardManager {
     // Delete-Button Funktion
     cardEl.querySelector('.delete-btn').addEventListener('click', () => {
       this.deleteCard(card.id);
-    });
+
+      fetch(`http://localhost:5000/delete_card/${card.id}`, {
+        method: 'DELETE'
+      })
+      .then(response => response.json())
+      .then(data => console.log("Karte serverseitig gelöscht:", data))
+      .catch(error => console.error("Fehler beim Löschen der Karte:", error));
+  });
 
     board.appendChild(cardEl);
   }
@@ -308,6 +315,8 @@ class BulletinBoardManager {
       card.title = editTitleInput.value.trim();
       card.author = editAuthorInput.value.trim();
       card.content = editContentInput.value.trim();
+      card.timestamp = new Date().toISOString(); 
+
 
       // DOM aktualisieren
       cardEl.querySelector('h2').textContent = card.title;
@@ -316,6 +325,21 @@ class BulletinBoardManager {
 
       // Boards speichern
       this.saveBoards();
+
+      fetch('http://localhost:5000/update_card', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(card)
+      })
+      .then(response => response.json())
+      .then(data => {
+        console.log("Karte serverseitig aktualisiert:", data);
+      })
+      .catch(error => {
+        console.error("Fehler beim Aktualisieren der Karte:", error);
+      });
 
       // Bearbeiten-Modal schließen
       editModal.classList.add('hidden');

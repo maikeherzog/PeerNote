@@ -371,6 +371,18 @@ class BulletinBoardManager {
         return;
       }
 
+      fetch('http://localhost:5000/save_card', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newCard)
+      })
+      .then(response => response.json())
+      .then(data => console.log("Karte wurde serverseitig gespeichert:", data))
+      .catch(error => console.error("Fehler beim Speichern der Karte:", error));
+
+
       // Karte zum DOM hinzufügen
       this.addCardToBoard(newCard);
 

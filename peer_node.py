@@ -1,5 +1,8 @@
 from Classes.Peer_node import Peer_node
 import time
+import webbrowser
+import subprocess
+import os
 
 # Lokale IP des aktuellen Rechners
 MY_IP = "--eigene-ip--"  # <- IP von diesem Rechner
@@ -9,10 +12,19 @@ MY_PORT = 8005           # <- einen freien Port wählen
 BOOTSTRAP_IP = "--bootstrap-ip--"
 BOOTSTRAP_PORT = 8001
 
+def start_frontend():
+    # Starte einfachen Webserver im Hintergrund
+    frontend_path = os.path.abspath("./bulletin_board_frontend")
+    subprocess.Popen(["python", "-m", "http.server", "8080"], cwd=frontend_path)
+
+    # Öffne Browser
+    webbrowser.open("http://localhost:8080")
+
 def main():
     node = Peer_node(MY_IP, MY_PORT)
     node.start()
     print(f"[PEER NODE] Started at {MY_IP}:{MY_PORT}")
+    start_frontend()
 
     time.sleep(1)  # Kleiner Delay für Stabilität
 

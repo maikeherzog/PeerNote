@@ -45,6 +45,11 @@ def main():
 
     if node.do_bootstrap():
         print(f"[PEER NODE] Connected to Bootstrap at {BOOTSTRAP_IP}:{BOOTSTRAP_PORT}")
+        print(f"Node Board id is: {node.board.board_id if node.board else 'No Board'}")
+
+        #node.board_request(BOOTSTRAP_IP, BOOTSTRAP_PORT, keywords=set())
+        node.issue_search_request([])
+
     else:
         print("[PEER NODE] Failed to connect to Bootstrap Node")
 

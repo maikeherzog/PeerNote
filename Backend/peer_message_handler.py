@@ -8,6 +8,7 @@ from message_type import MessageType
 from datetime import datetime
 import json
 import socket
+from Backend.config import BOOTSTRAP
 
 HEADER_SIZE = 4
 
@@ -170,17 +171,30 @@ def handle_pong(node, data):
         "board_title": payload.get("title"),
         "board_id": payload.get("board_id"),
         "responder_host": payload.get("responder_host"),
-        "responder_port": payload.get("responder_port")
+        "responder_port": payload.get("responder_port"),
+        "boards": payload.get("boards")
     }
 
     print(responder_info)
 
     print(data)
-
     # pong belongs to this node
     if ping_id in node.pongs_received:
         node.pongs_received[ping_id].append(responder_info)
         print(f"Stored PONG from {responder_info['responder_id']}")
+        print(f"[PAYLOAD]: {node.pongs_received[ping_id]}")
+
+        if payload.get("responder_host") == BOOTSTRAP[0] and payload.get("responder_port") == BOOTSTRAP[1]:
+            #payload save into json file and delete old content
+            try:
+                with open("data/received_boards.json", "w", encoding="utf-8") as f:
+                    json.dump(payload.get("boards", []), f, ensure_ascii=False, indent=2)
+                print(f"Saved boards to data/received_boards.json")
+            except Exception as e:
+                print(f"Error saving boards to data/boards.json: {e}")
+            
+
+
 
     # if pong is not directed to this node -> send to next in routing table
     elif ping_id in node.routing_table:

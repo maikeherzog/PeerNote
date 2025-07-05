@@ -1,0 +1,14 @@
+[
+    {
+        "owner_host": "127.0.0.1",
+        "owner_port": 8005, 
+        "board_id": "fc64983c-5e1f-424e-836d-c612b9ad5de9",
+        "board_title": "My Awesome Board"
+    },
+    {
+        "owner_host": "127.0.0.1",
+        "owner_port": 8005,
+        "board_id": "522ad6a7-d2f3-4c68-a418-b2fbed841a0a",
+        "board_title": "Toolo"
+    }
+]

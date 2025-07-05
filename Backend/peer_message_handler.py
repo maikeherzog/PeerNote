@@ -42,14 +42,12 @@ def create_packet(msg_type: MessageType, node_id: str, host: str, port: int, is_
 def send_packet(data: str, conn: socket):
     # prepare header containing how much bytes are being send in this packet
     header = len(data).to_bytes(HEADER_SIZE, byteorder='big')
-
     # send real packet
     conn.sendall(header + bytes(data, encoding="utf-8"))
 
 
 def receive_packet(conn: socket):
     header = receive_exactly(n_bytes=HEADER_SIZE, conn=conn, header=True)
-
     # no header no package
     if header is None:
         return None
@@ -58,7 +56,6 @@ def receive_packet(conn: socket):
     # receive data
     data = receive_exactly(data_size, conn)
     data = data.decode("utf-8")
-
     return data
 
 

@@ -211,6 +211,7 @@ class PeerNode:
         if not self.bootstrap:
             return self.connect(BOOTSTRAP[0], BOOTSTRAP[1], True)
 
+    # Issue a search request to all known peers for boards with specific keywords.
     def issue_search_request(self, keywords: set = {}):
         ping_id = str(uuid.uuid4())
         ttl = 5
@@ -249,6 +250,7 @@ class PeerNode:
 
                 # transform data into a readable format
                 data = json.loads(data)
+                print (f"Received data from {send_host}:{send_port}: {data}")
                 try:
                     msg_type = MessageType(data.get("type", "error"))
 
@@ -280,7 +282,7 @@ class PeerNode:
                         print("Received PING.")
                         handle_ping(self, conn, data)
                         # reply with PONG
-                        
+
                     case MessageType.PONG:
                         print("Received PONG.")
                         self.pongs += 1
@@ -502,6 +504,8 @@ class PeerNode:
             request_type = payload.get("type")  # "meta" or "content"
             content_title = payload.get("title")  # optional if meta
 
+            print(f"Data request received: {payload}")
+
             # Fallback
             if not board_title or request_type not in ("meta", "content"):
                 raise ValueError("Malformed payload")
@@ -509,12 +513,14 @@ class PeerNode:
             if not self.super_peer or self.board is None:
                 raise ValueError("Node is not a super peer or board not available")
 
-            if board_title != self.board.get_title():
-                raise ValueError("Board title mismatch")
+            """if board_title != self.board.get_title():
+                raise ValueError("Board title mismatch")"""
 
+            card_owners = self.load_card_ownership(board_title)
             print(f"Meta data requested for board: {board_title}")
-            card_refs = self.board.get_card_references()
-            meta = []
+            print(f"Card owners: {card_owners}")
+            #card_refs = self.board.get_card_references()
+            """meta = []
             for (node_id, title), card in card_refs.items():
                 meta.append((
                     node_id,
@@ -522,12 +528,11 @@ class PeerNode:
                     card.host,
                     card.port,
                     card.get_timestamp()
-                ))
+                ))"""
 
             response = create_packet(
                 MessageType.DATA_RESPONSE,
-                self.node_id, self.host, self.port, self.super_peer,
-                meta
+                self.node_id, self.host, self.port, self.super_peer, card_owners
             )
             send_packet(response, conn)
 
@@ -765,6 +770,27 @@ class PeerNode:
             print(f"[BOOTSTRAP] Board unregistered: {board_title} by peer {peer_id}")
         else:
             print(f"[BOOTSTRAP] Board not found for unregistration: {board_title} by peer {peer_id}")
+
+    def load_card_ownership(self, board_name: str):
+        """
+        Loads the card ownership for a specific board from the superpeer_boards.json file. and returns a list of tuples
+        """
+        file_path = "../PeerNote/data/superpeer_boards.json"
+        if not os.path.exists(file_path):
+            return []
+
+        with open(file_path, "r", encoding="utf-8") as f:
+            boards = json.load(f)
+
+        owners = []
+        for board in boards:
+            if board.get("board_title") == board_name:
+                #change to dict instead of tuple
+                owners.append((board.get("owner_host"), board.get("owner_port"), board.get("board_title") ))
+                
+
+        return owners
+        
 
 
 

@@ -7,6 +7,7 @@ import time
 import webbrowser
 import subprocess
 import os
+import json
 
 # Lokale IP des aktuellen Rechners
 #MY_IP = "192.168.2.101"  # <- IP von diesem Rechner
@@ -49,6 +50,24 @@ def main():
 
         #node.board_request(BOOTSTRAP_IP, BOOTSTRAP_PORT, keywords=set())
         node.issue_search_request([])
+        node.super_peer = True  # Setze den PeerNode als Super Peer
+        node.board = "fc64983c-5e1f-424e-836d-c612b9ad5de9"
+
+        try:
+            with open("data/received_boards.json", "r", encoding="utf-8") as f:
+                boards = json.load(f)
+                print(f"[PEER NODE] Loaded boards from data/received_boards.json: {boards}")
+        except FileNotFoundError:
+            print("[PEER NODE] No boards found in data/received_boards.json")
+
+        for board in boards:
+            peer_host = board.get("peer_host")
+            peer_port = board.get("peer_port")
+            if peer_host and peer_port:
+                print(f"[PEER NODE] Sending data request to {peer_host}:{peer_port}")
+                node.send_data_request(peer_host, peer_port, 'My Awesome Board')
+            else:
+                print("[PEER NODE] No valid peer host or port found in board data")
 
     else:
         print("[PEER NODE] Failed to connect to Bootstrap Node")

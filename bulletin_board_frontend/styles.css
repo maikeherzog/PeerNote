@@ -384,4 +384,34 @@ padding: 15px 20px;
 #board {
 padding: 15px;
 }
+
+.remote-board-tab {
+  background-color: #e8f4f8;
+  border-left: 3px solid #2196F3;
+}
+
+.remote-indicator {
+  margin-right: 5px;
+}
+
+.remote-info {
+  font-size: 0.8em;
+  color: #666;
+  margin-left: 5px;
+}
+
+.remote-board-info {
+  background-color: #f0f8ff;
+  border: 2px solid #2196F3;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px;
+  text-align: center;
+}
+
+.remote-board-info h3 {
+  margin-top: 0;
+  color: #1976D2;
+}
+
 }

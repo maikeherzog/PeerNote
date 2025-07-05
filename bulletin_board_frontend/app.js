@@ -68,30 +68,43 @@ class BulletinBoardManager {
 
   // Event Listeners initialisieren
   initializeEventListeners() {
-    // Board Management
-  document.getElementById('createBoardBtn').addEventListener('click', () => {
-    const payload = {
-      title: "My Awesome Board",
-      keywords: ["fun", "chat", "random"]
-    };
-    fetch('http://localhost:5000/set_super_peer', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    })
-      .then(response => response.json())
-      .then(data => console.log('Antwort von Python:', data))
-      .catch(error => console.error('Fehler beim Aufruf von set_super_peer:', error));
-
-    document.getElementById('createBoardModal').classList.remove('hidden');
-  });
-
+    // Board Management - Second Approach: Create local board first
+    document.getElementById('createBoardBtn').addEventListener('click', () => {
+      document.getElementById('createBoardModal').classList.remove('hidden');
+    });
 
     document.getElementById('createBoardForm').addEventListener('submit', (e) => {
       e.preventDefault();
+      
+      const boardName = document.getElementById('boardNameInput').value.trim();
+      if (!boardName) {
+        alert('Bitte geben Sie einen Board-Namen ein!');
+        return;
+      }
+      
+      // Create the board locally FIRST
       this.createBoard();
+      
+      // THEN register with bootstrap
+      const payload = {
+        title: boardName,
+        keywords: ["fun", "chat", "random"]
+      };
+      
+      fetch('http://localhost:5000/set_super_peer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      })
+      .then(response => response.json())
+      .then(data => {
+        console.log('Bootstrap registration:', data);
+      })
+      .catch(error => {
+        console.error('Bootstrap registration failed:', error);
+      });
     });
 
     document.getElementById('createBoardCancelBtn').addEventListener('click', () => {
@@ -143,6 +156,26 @@ class BulletinBoardManager {
     }
 
     if (confirm('Sind Sie sicher, dass Sie dieses Board löschen möchten?')) {
+      // Get the board before deleting it
+      const boardToDelete = this.boards.find(board => board.id === boardId);
+      
+      // Send unregistration request to bootstrap
+      if (boardToDelete && boardToDelete.name !== 'Sommer') { // Don't unregister default board
+        fetch('http://localhost:5000/unregister_board', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            board_title: boardToDelete.name
+          })
+        })
+        .then(response => response.json())
+        .then(data => console.log("Board unregistered from bootstrap:", data))
+        .catch(error => console.error("Error unregistering board:", error));
+      }
+      
+      // Continue with local deletion
       this.boards = this.boards.filter(board => board.id !== boardId);
       
       if (this.currentBoardId === boardId) {

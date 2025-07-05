@@ -1,0 +1,16 @@
+[
+  {
+    "board_id": "fc64983c-5e1f-424e-836d-c612b9ad5de9",
+    "peer_id": "9208e483-5803-461e-9ea7-0750db028a68",
+    "board_title": "My Awesome Board",
+    "keywords": [
+      "fun",
+      "chat",
+      "random"
+    ],
+    "peer_host": "127.0.0.1",
+    "peer_port": 9005,
+    "created_at": 1751649784.3463838,
+    "status": "active"
+  }
+]

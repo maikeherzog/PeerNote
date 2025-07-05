@@ -1,2 +1,2 @@
-BOOTSTRAP = ("---IP Adresse von Bootstrapp Peer---", 8001)
-LOCAL = ("---eigene IP Adresse---", 8005)  
+BOOTSTRAP = ("botstrap-ip", 9001)
+LOCAL = ("local-ip", 9005)  

@@ -20,5 +20,27 @@
     "votes": 0,
     "host": "127.0.0.1",
     "port": 8005
+  },
+  {
+    "id": "f62bcc5d-92c3-4ab0-b8df-6dc19c6a4465",
+    "title": "tdz567",
+    "author": "fztf",
+    "content": "tfzufgkug",
+    "timestamp": "2025-07-04T16:12:47.769Z",
+    "comments": {},
+    "votes": 0,
+    "host": "127.0.0.1",
+    "port": 9005
+  },
+  {
+    "id": "6d8265fa-1785-4c61-ad3a-93b802cca359",
+    "title": "23432",
+    "author": "asdfsd",
+    "content": "asfsdc",
+    "timestamp": "2025-07-04T17:28:05.474Z",
+    "comments": {},
+    "votes": 0,
+    "host": "127.0.0.1",
+    "port": 9005
   }
 ]

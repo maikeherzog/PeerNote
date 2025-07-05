@@ -1,5 +1,5 @@
 let peerInfo = {
-  host: "localhost",  // fallback
+  host: "127.0.0.1",  // fallback
   port: 8005          // fallback
 };
 
@@ -48,6 +48,44 @@ class BulletinBoardManager {
     
     return [defaultBoard];
   }
+
+  async  loadRemoteBoards() {
+  try {
+    const response = await fetch("../data/received_boards.json");
+
+    if (!response.ok) {
+      throw new Error("Datei nicht gefunden oder ungültig");
+    }
+
+    const payload = await response.json();
+
+    if (!payload.boards || !Array.isArray(payload.boards)) {
+      console.warn("Keine gültigen Boards gefunden.");
+      return;
+    }
+
+    console.log("[REMOTE BOARDS]:", payload.boards);
+
+    // Einfügepunkt im HTML
+    const container = document.getElementById("remoteBoards");
+    container.innerHTML = "";
+
+    payload.boards.forEach((board) => {
+      const div = document.createElement("div");
+      div.className = "remote-board";
+      div.innerHTML = `
+        <h3>${board.board_title}</h3>
+        <p><strong>Keywords:</strong> ${board.keywords.join(", ")}</p>
+        <p><strong>Peer:</strong> ${board.peer_host}:${board.peer_port}</p>
+      `;
+      container.appendChild(div);
+    });
+  } catch (error) {
+    console.warn("received_boards.json konnte nicht geladen werden:", error);
+  }
+}
+
+
 
   saveBoards() {
     localStorage.setItem('bulletinBoards', JSON.stringify(this.boards));
@@ -555,4 +593,7 @@ class BulletinBoardManager {
 // App initialisieren wenn DOM geladen ist
 window.addEventListener('DOMContentLoaded', () => {
   window.boardManager = new BulletinBoardManager();
+  window.boardManager.loadRemoteBoards(); // Boards aus JSON laden
 });
+
+

@@ -1,0 +1,30 @@
+[
+  {
+    "board_id": "fc64983c-5e1f-424e-836d-c612b9ad5de9",
+    "peer_id": "9208e483-5803-461e-9ea7-0750db028a68",
+    "board_title": "My Awesome Board",
+    "keywords": [
+      "fun",
+      "chat",
+      "random"
+    ],
+    "peer_host": "127.0.0.1",
+    "peer_port": 9005,
+    "created_at": 1751649784.3463838,
+    "status": "active"
+  },
+  {
+    "board_id": "522ad6a7-d2f3-4c68-a418-b2fbed841a0a",
+    "peer_id": "898e76f2-f6eb-46a3-a4d1-716b886559db",
+    "board_title": "Toolo",
+    "keywords": [
+      "fun",
+      "chat",
+      "random"
+    ],
+    "peer_host": "127.0.0.1",
+    "peer_port": 8005,
+    "created_at": 1751740465.5331516,
+    "status": "active"
+  }
+]

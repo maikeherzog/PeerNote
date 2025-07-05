@@ -32,6 +32,12 @@ class MessageType(str, Enum):
     ERROR = "error"
     CONNECT = "connect"
     CONNECT_RESPONSE = "connect_response"
+    # board register in the bootstrap peer
+    BOARD_REGISTER = "board_register"
+    BOARD_REGISTER_RESPONSE = "board_register_response"
+    # delete board 
+    BOARD_UNREGISTER = "board_unregister"
+    BOARD_UNREGISTER_RESPONSE = "board_unregister_response"
 
 
 '''

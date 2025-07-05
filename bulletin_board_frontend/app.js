@@ -1,3 +1,24 @@
+let peerInfo = {
+  host: "localhost",  // fallback
+  port: 8005          // fallback
+};
+
+fetch("http://localhost:5000/peer_info")
+  .then(res => res.json())
+  .then(data => {
+    if (data.host && data.port) {
+      peerInfo.host = data.host;
+      peerInfo.port = data.port;
+      console.log("Peer-Info geladen:", peerInfo);
+    } else {
+      console.warn("Peer-Info unvollständig, Fallback wird verwendet.");
+    }
+  })
+  .catch(err => {
+    console.error("Fehler beim Laden von /peer_info:", err);
+  });
+
+
 // Multi-Board Bulletin Board Manager
 class BulletinBoardManager {
   constructor() {
@@ -47,14 +68,43 @@ class BulletinBoardManager {
 
   // Event Listeners initialisieren
   initializeEventListeners() {
-    // Board Management
+    // Board Management - Second Approach: Create local board first
     document.getElementById('createBoardBtn').addEventListener('click', () => {
       document.getElementById('createBoardModal').classList.remove('hidden');
     });
 
     document.getElementById('createBoardForm').addEventListener('submit', (e) => {
       e.preventDefault();
+      
+      const boardName = document.getElementById('boardNameInput').value.trim();
+      if (!boardName) {
+        alert('Bitte geben Sie einen Board-Namen ein!');
+        return;
+      }
+      
+      // Create the board locally FIRST
       this.createBoard();
+      
+      // THEN register with bootstrap
+      const payload = {
+        title: boardName,
+        keywords: ["fun", "chat", "random"]
+      };
+      
+      fetch('http://localhost:5000/set_super_peer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      })
+      .then(response => response.json())
+      .then(data => {
+        console.log('Bootstrap registration:', data);
+      })
+      .catch(error => {
+        console.error('Bootstrap registration failed:', error);
+      });
     });
 
     document.getElementById('createBoardCancelBtn').addEventListener('click', () => {
@@ -106,6 +156,26 @@ class BulletinBoardManager {
     }
 
     if (confirm('Sind Sie sicher, dass Sie dieses Board löschen möchten?')) {
+      // Get the board before deleting it
+      const boardToDelete = this.boards.find(board => board.id === boardId);
+      
+      // Send unregistration request to bootstrap
+      if (boardToDelete && boardToDelete.name !== 'Sommer') { // Don't unregister default board
+        fetch('http://localhost:5000/unregister_board', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            board_title: boardToDelete.name
+          })
+        })
+        .then(response => response.json())
+        .then(data => console.log("Board unregistered from bootstrap:", data))
+        .catch(error => console.error("Error unregistering board:", error));
+      }
+      
+      // Continue with local deletion
       this.boards = this.boards.filter(board => board.id !== boardId);
       
       if (this.currentBoardId === boardId) {
@@ -240,7 +310,14 @@ class BulletinBoardManager {
     // Delete-Button Funktion
     cardEl.querySelector('.delete-btn').addEventListener('click', () => {
       this.deleteCard(card.id);
-    });
+
+      fetch(`http://localhost:5000/delete_card/${card.id}`, {
+        method: 'DELETE'
+      })
+      .then(response => response.json())
+      .then(data => console.log("Karte serverseitig gelöscht:", data))
+      .catch(error => console.error("Fehler beim Löschen der Karte:", error));
+  });
 
     board.appendChild(cardEl);
   }
@@ -292,6 +369,8 @@ class BulletinBoardManager {
       card.title = editTitleInput.value.trim();
       card.author = editAuthorInput.value.trim();
       card.content = editContentInput.value.trim();
+      card.timestamp = new Date().toISOString(); 
+
 
       // DOM aktualisieren
       cardEl.querySelector('h2').textContent = card.title;
@@ -300,6 +379,21 @@ class BulletinBoardManager {
 
       // Boards speichern
       this.saveBoards();
+
+      fetch('http://localhost:5000/update_card', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(card)
+      })
+      .then(response => response.json())
+      .then(data => {
+        console.log("Karte serverseitig aktualisiert:", data);
+      })
+      .catch(error => {
+        console.error("Fehler beim Aktualisieren der Karte:", error);
+      });
 
       // Bearbeiten-Modal schließen
       editModal.classList.add('hidden');
@@ -343,17 +437,33 @@ class BulletinBoardManager {
       e.preventDefault();
 
       const newCard = {
-        id: Date.now(), // ID hinzufügen für eindeutige Identifikation
+        id: self.crypto.randomUUID(),                         // wie uuid.uuid4()
         title: document.getElementById('titleInput').value.trim(),
         author: document.getElementById('authorInput').value.trim(),
         content: document.getElementById('contentInput').value.trim(),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),                  // entspricht datetime.now().isoformat()
+        comments: {},                                         // leeres Objekt
+        votes: 0,                                             // Startwert
+        host: peerInfo.host,              // oder per fetch dynamisch setzen
+        port: peerInfo.port                                    // oder per fetch dynamisch setzen
       };
 
       if (!newCard.title || !newCard.author || !newCard.content) {
         alert('Bitte alle Felder ausfüllen!');
         return;
       }
+
+      fetch('http://localhost:5000/save_card', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newCard)
+      })
+      .then(response => response.json())
+      .then(data => console.log("Karte wurde serverseitig gespeichert:", data))
+      .catch(error => console.error("Fehler beim Speichern der Karte:", error));
+
 
       // Karte zum DOM hinzufügen
       this.addCardToBoard(newCard);

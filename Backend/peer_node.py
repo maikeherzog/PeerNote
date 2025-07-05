@@ -2,6 +2,8 @@ import json
 import time
 import uuid
 import random
+import requests
+import os
 
 from collections import deque
 from Backend.Board import Board
@@ -319,6 +321,27 @@ class PeerNode:
                         # always decline
                         send_close(self, conn)
 
+                    case MessageType.BOARD_REGISTER:
+                        print("Board registration received.")
+                        self.handle_board_registration(payload)
+                        # Send confirmation back
+                        response = create_packet(MessageType.BOARD_REGISTER_RESPONSE, self.node_id, self.host, self.port, self.super_peer, {"status": "registered"})
+                        send_packet(response, conn)
+
+                    case MessageType.BOARD_REGISTER_RESPONSE:
+                        print("Board registration confirmed.")
+                        # Handle confirmation if needed
+                    
+                    case MessageType.BOARD_UNREGISTER:
+                        print("Board unregistration received.")
+                        self.handle_board_unregistration(payload)
+                        # Send confirmation back
+                        response = create_packet(MessageType.BOARD_UNREGISTER_RESPONSE, self.node_id, self.host, self.port, self.super_peer, {"status": "unregistered"})
+                        send_packet(response, conn)
+
+                    case MessageType.BOARD_UNREGISTER_RESPONSE:
+                        print("Board unregistration confirmed.")
+                        # Handle confirmation if needed
 
             except Exception as e:
                 print(
@@ -342,10 +365,28 @@ class PeerNode:
             self.server_socket.close()
 
     def set_super_peer(self, title, keywords):
-        # make code only available if the peer did not have super peer status yet
+        print("set_super_peer called")
+        
         if not self.super_peer:
+            # First time becoming super peer
             self.super_peer = True
             self.board = Board(title, keywords)
+            
+            # Send board registration to bootstrap via P2P
+            if not self.bootstrap:
+                self.send_board_registration_to_bootstrap(title, keywords)
+            
+            print(f"Peer is superpeer:{self.super_peer}")
+            return True
+        else:
+            # Already a super peer, but allow additional board creation
+            print("Peer is already super peer, registering additional board")
+            
+            # Send board registration to bootstrap via P2P for additional boards
+            if not self.bootstrap:
+                self.send_board_registration_to_bootstrap(title, keywords)
+            
+            return True  # Return True to indicate success
 
     # -------------------- BOARD / DATA Handler --------------------
     def data_update_handler(self, other_id: str, payload: list[dict], req_host, req_port):
@@ -602,3 +643,128 @@ class PeerNode:
             board = "default"
         # very simple, maybe optimize
         self.data_store[title] = (content, board)
+
+    def send_board_registration_to_bootstrap(self, title, keywords):
+        try:
+            from Backend.config import BOOTSTRAP
+            conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            conn.connect(BOOTSTRAP)
+            
+            board_data = {
+                "board_id": str(uuid.uuid4()),
+                "peer_id": self.node_id,
+                "board_title": title,
+                "keywords": keywords,
+                "peer_host": self.host,
+                "peer_port": self.port
+            }
+            
+            packet = create_packet(MessageType.BOARD_REGISTER, self.node_id, self.host, self.port, self.super_peer, board_data)
+            send_packet(packet, conn)
+            
+            # Wait for response
+            response = receive_packet(conn)
+            if response:
+                print(f"Board registration response: {response}")
+            
+            conn.close()
+        except Exception as e:
+            print(f"Error registering board with bootstrap: {e}")
+
+    def handle_board_registration(self, board_data):
+        """Handle board registration from a peer (only on bootstrap node)"""
+        if not self.bootstrap:
+            return  # Only bootstrap should handle registrations
+        
+        import json
+        import os
+        
+        # Create data directory if it doesn't exist
+        os.makedirs("data", exist_ok=True)
+        file_path = os.path.join("data", "boards.json")
+        
+        # Load existing boards
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                boards = json.load(f)
+        else:
+            boards = []
+        
+        # Add new board
+        board_entry = {
+            "board_id": board_data["board_id"],
+            "peer_id": board_data["peer_id"],
+            "board_title": board_data["board_title"],
+            "keywords": board_data["keywords"],
+            "peer_host": board_data["peer_host"],
+            "peer_port": board_data["peer_port"],
+            "created_at": time.time(),
+            "status": "active"
+        }
+        
+        boards.append(board_entry)
+        
+        # Save boards
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(boards, f, ensure_ascii=False, indent=2)
+        
+        print(f"[BOOTSTRAP] Board registered: {board_data['board_title']} by peer {board_data['peer_id']}")
+
+    def send_board_unregistration_to_bootstrap(self, board_title):
+        try:
+            from Backend.config import BOOTSTRAP
+            conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            conn.connect(BOOTSTRAP)
+            
+            unregister_data = {
+                "peer_id": self.node_id,
+                "board_title": board_title
+            }
+            
+            packet = create_packet(MessageType.BOARD_UNREGISTER, self.node_id, self.host, self.port, self.super_peer, unregister_data)
+            send_packet(packet, conn)
+            
+            # Wait for response
+            response = receive_packet(conn)
+            if response:
+                print(f"Board unregistration response: {response}")
+            
+            conn.close()
+        except Exception as e:
+            print(f"Error unregistering board with bootstrap: {e}")
+
+    def handle_board_unregistration(self, unregister_data):
+        """Handle board unregistration from a peer (only on bootstrap node)"""
+        if not self.bootstrap:
+            return  # Only bootstrap should handle unregistrations
+        
+        import json
+        import os
+        
+        file_path = os.path.join("data", "boards.json")
+        
+        if not os.path.exists(file_path):
+            return
+        
+        # Load existing boards
+        with open(file_path, "r", encoding="utf-8") as f:
+            boards = json.load(f)
+        
+        # Remove boards matching peer_id and board_title
+        peer_id = unregister_data["peer_id"]
+        board_title = unregister_data["board_title"]
+        
+        original_count = len(boards)
+        boards = [board for board in boards if not (board["peer_id"] == peer_id and board["board_title"] == board_title)]
+        
+        if len(boards) < original_count:
+            # Save updated boards list
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(boards, f, ensure_ascii=False, indent=2)
+            
+            print(f"[BOOTSTRAP] Board unregistered: {board_title} by peer {peer_id}")
+        else:
+            print(f"[BOOTSTRAP] Board not found for unregistration: {board_title} by peer {peer_id}")
+
+
+

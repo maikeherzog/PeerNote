@@ -95,9 +95,11 @@ def handle_ping(node, conn, data: dict):
     keywords = set(payload.get("keywords", []))
     origin_id = payload.get("origin_id")
     origin_host = payload.get("origin_host")
-    origin_port = payload.get("origin_port")
+    origin_port = payload.get("origin"
+                              "_port")
 
     if ping_id in node.routing_table:
+        print("Already received PINg --> ignoring")
         # ignore duplicate ping
         return
     else:
@@ -105,9 +107,11 @@ def handle_ping(node, conn, data: dict):
 
     # Match prüfen
     if node.board and node.board.query_matches(keywords):
+        print(f"Node-board id {node.board.board_id}")
         pong_payload = {
             "ping_id": ping_id,
             "title": node.board.get_title(),
+            "board_id": node.board.board_id,
             "responder_id": node.node_id,
             "responder_host": node.host,
             "responder_port": node.port,
@@ -154,9 +158,14 @@ def handle_pong(node, data):
     responder_info = {
         "responder_id": payload.get("responder_id"),
         "board_title": payload.get("title"),
+        "board_id": payload.get("board_id"),
         "responder_host": payload.get("responder_host"),
         "responder_port": payload.get("responder_port")
     }
+
+    print(responder_info)
+
+    print(data)
 
     # pong belongs to this node
     if ping_id in node.pongs_received:

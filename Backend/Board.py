@@ -68,6 +68,10 @@ class Board:
         :param keywords: keys to be matched against
         :return: 'True' if at least one key matche, otherwise 'False'
         """
+        # return true if no keyword is used
+
+        if not keywords:
+            return True
         for key in keywords:
             if key in self.keywords:
                 return True

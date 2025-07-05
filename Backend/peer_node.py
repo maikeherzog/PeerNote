@@ -211,7 +211,7 @@ class PeerNode:
         if not self.bootstrap:
             return self.connect(BOOTSTRAP[0], BOOTSTRAP[1], True)
 
-    def issue_search_request(self, keywords: list):
+    def issue_search_request(self, keywords: set = {}):
         ping_id = str(uuid.uuid4())
         ttl = 5
 

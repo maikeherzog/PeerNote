@@ -23,12 +23,12 @@ fetch("http://localhost:5000/peer_info")
 class BulletinBoardManager {
   constructor() {
     this.boards = this.loadBoards();
+    this.remoteBoards = []; // Neue Eigenschaft für entfernte Boards
     this.currentBoardId = this.loadCurrentBoard();
     this.currentEditId = null;
     
     this.initializeEventListeners();
-    this.renderBoardTabs();
-    this.loadCurrentBoardCards();
+    this.loadRemoteBoards(); // Entfernte Boards laden
   }
 
   // Daten laden und speichern
@@ -49,43 +49,40 @@ class BulletinBoardManager {
     return [defaultBoard];
   }
 
-  async  loadRemoteBoards() {
-  try {
-    const response = await fetch("../data/received_boards.json");
+  // Erweiterte loadRemoteBoards() Funktion
+  async loadRemoteBoards() {
+    try {
+      const response = await fetch("../data/received_boards.json");
 
-    if (!response.ok) {
-      throw new Error("Datei nicht gefunden oder ungültig");
+      if (!response.ok) {
+        throw new Error("Datei nicht gefunden oder ungültig");
+      }
+
+      const payload = await response.json();
+
+      if (!Array.isArray(payload)) {
+        console.warn("Keine gültigen Boards gefunden.");
+        return;
+      }
+
+      console.log("[REMOTE BOARDS]:", payload);
+
+      // Entfernte Boards in remoteBoards Array speichern
+      this.remoteBoards = payload.map(board => ({
+        id: `remote-${board.board_id}`,
+        name: board.board_title,
+        cards: [],
+        isRemote: true,
+        remoteData: board // Alle Original-Daten speichern
+      }));
+
+      // Board-Tabs neu rendern (inkl. entfernte Boards)
+      this.renderBoardTabs();
+
+    } catch (error) {
+      console.warn("received_boards.json konnte nicht geladen werden:", error);
     }
-
-    const payload = await response.json();
-
-    if (!payload.boards || !Array.isArray(payload.boards)) {
-      console.warn("Keine gültigen Boards gefunden.");
-      return;
-    }
-
-    console.log("[REMOTE BOARDS]:", payload.boards);
-
-    // Einfügepunkt im HTML
-    const container = document.getElementById("remoteBoards");
-    container.innerHTML = "";
-
-    payload.boards.forEach((board) => {
-      const div = document.createElement("div");
-      div.className = "remote-board";
-      div.innerHTML = `
-        <h3>${board.board_title}</h3>
-        <p><strong>Keywords:</strong> ${board.keywords.join(", ")}</p>
-        <p><strong>Peer:</strong> ${board.peer_host}:${board.peer_port}</p>
-      `;
-      container.appendChild(div);
-    });
-  } catch (error) {
-    console.warn("received_boards.json konnte nicht geladen werden:", error);
   }
-}
-
-
 
   saveBoards() {
     localStorage.setItem('bulletinBoards', JSON.stringify(this.boards));
@@ -100,8 +97,17 @@ class BulletinBoardManager {
     localStorage.setItem('currentBoardId', this.currentBoardId);
   }
 
+  // Erweiterte getCurrentBoard() Funktion
   getCurrentBoard() {
-    return this.boards.find(board => board.id === this.currentBoardId);
+    // Erst in lokalen Boards suchen
+    let board = this.boards.find(board => board.id === this.currentBoardId);
+    
+    // Falls nicht gefunden, in entfernten Boards suchen
+    if (!board) {
+      board = this.remoteBoards.find(board => board.id === this.currentBoardId);
+    }
+    
+    return board;
   }
 
   // Event Listeners initialisieren
@@ -188,6 +194,12 @@ class BulletinBoardManager {
   }
 
   deleteBoard(boardId) {
+    // Verhindern, dass entfernte Boards gelöscht werden
+    if (boardId.startsWith('remote-')) {
+      alert('Entfernte Boards können nicht gelöscht werden!');
+      return;
+    }
+
     if (this.boards.length <= 1) {
       alert('Sie müssen mindestens ein Board behalten!');
       return;
@@ -235,23 +247,39 @@ class BulletinBoardManager {
     document.getElementById('searchInput').value = '';
   }
 
+  // Erweiterte renderBoardTabs() Funktion
   renderBoardTabs() {
     const tabsContainer = document.getElementById('boardTabs');
     tabsContainer.innerHTML = '';
 
-    this.boards.forEach(board => {
+    // Alle Boards kombinieren (lokale + entfernte)
+    const allBoards = [...this.boards, ...this.remoteBoards];
+
+    allBoards.forEach(board => {
       const tab = document.createElement('button');
       tab.className = `board-tab ${board.id === this.currentBoardId ? 'active' : ''}`;
-      tab.innerHTML = `
-        ${this.escapeHtml(board.name)}
-        <button class="delete-board" onclick="event.stopPropagation(); boardManager.deleteBoard('${board.id}')">&times;</button>
-      `;
+      
+      // Unterschiedliche Darstellung für entfernte Boards
+      if (board.isRemote) {
+        tab.innerHTML = `
+          <span class="remote-indicator">🌐</span>
+          ${this.escapeHtml(board.name)}
+          <span class="remote-info">(${board.remoteData.peer_host}:${board.remoteData.peer_port})</span>
+        `;
+        tab.classList.add('remote-board-tab');
+      } else {
+        tab.innerHTML = `
+          ${this.escapeHtml(board.name)}
+          <button class="delete-board" onclick="event.stopPropagation(); boardManager.deleteBoard('${board.id}')">&times;</button>
+        `;
+      }
+      
       tab.addEventListener('click', () => this.switchToBoard(board.id));
       tabsContainer.appendChild(tab);
     });
   }
 
-  // Board-Filter Funktion
+  // Erweiterte Board-Filter Funktion
   filterBoards(searchTerm) {
     const tabsContainer = document.getElementById('boardTabs');
     const tabs = tabsContainer.querySelectorAll('.board-tab');
@@ -265,9 +293,10 @@ class BulletinBoardManager {
     }
 
     const query = searchTerm.toLowerCase();
+    const allBoards = [...this.boards, ...this.remoteBoards];
     
     tabs.forEach((tab, index) => {
-      const board = this.boards[index];
+      const board = allBoards[index];
       const boardName = board.name.toLowerCase();
       
       // Board-Namen durchsuchen
@@ -279,7 +308,7 @@ class BulletinBoardManager {
     });
   }
 
-  // Karten für aktuelles Board laden (angepasst von deiner loadCards Funktion)
+  // Erweiterte loadCurrentBoardCards() Funktion
   async loadCurrentBoardCards() {
     const currentBoard = this.getCurrentBoard();
     if (!currentBoard) return;
@@ -287,7 +316,22 @@ class BulletinBoardManager {
     const board = document.getElementById('board');
     board.innerHTML = '';
 
-    // Für "Sommer" Board: cards.json laden
+    // Spezielle Behandlung für entfernte Boards
+    if (currentBoard.isRemote) {
+      board.innerHTML = `
+        <div class="empty-state">
+          <h3>Keine Karten vorhanden</h3>
+          <p>Klicken Sie auf das + Symbol, um eine neue Karte hinzuzufügen.</p>
+        </div>
+      `;
+      
+      // Hier könnten Sie später die Karten vom entfernten Peer laden
+      // z.B. fetch(`http://${currentBoard.remoteData.peer_host}:${currentBoard.remoteData.peer_port}/cards`)
+      
+      return;
+    }
+
+    // Rest der ursprünglichen Logik für lokale Boards...
     if (currentBoard.useJsonFile && currentBoard.cards.length === 0) {
       try {
         const response = await fetch('cards.json');
@@ -355,7 +399,7 @@ class BulletinBoardManager {
       .then(response => response.json())
       .then(data => console.log("Karte serverseitig gelöscht:", data))
       .catch(error => console.error("Fehler beim Löschen der Karte:", error));
-  });
+    });
 
     board.appendChild(cardEl);
   }
@@ -409,7 +453,6 @@ class BulletinBoardManager {
       card.content = editContentInput.value.trim();
       card.timestamp = new Date().toISOString(); 
 
-
       // DOM aktualisieren
       cardEl.querySelector('h2').textContent = card.title;
       cardEl.querySelector('.author').textContent = `von ${card.author}`;
@@ -461,6 +504,12 @@ class BulletinBoardManager {
 
     // Plus-Button öffnet Hinzufügen-Modal
     addBtn.addEventListener('click', () => {
+      // Verhindern, dass Karten zu entfernten Boards hinzugefügt werden
+      const currentBoard = this.getCurrentBoard();
+      if (currentBoard && currentBoard.isRemote) {
+        alert('Sie können keine Karten zu entfernten Boards hinzufügen!');
+        return;
+      }
       addModal.classList.remove('hidden');
     });
 
@@ -475,15 +524,15 @@ class BulletinBoardManager {
       e.preventDefault();
 
       const newCard = {
-        id: self.crypto.randomUUID(),                         // wie uuid.uuid4()
+        id: self.crypto.randomUUID(),
         title: document.getElementById('titleInput').value.trim(),
         author: document.getElementById('authorInput').value.trim(),
         content: document.getElementById('contentInput').value.trim(),
-        timestamp: new Date().toISOString(),                  // entspricht datetime.now().isoformat()
-        comments: {},                                         // leeres Objekt
-        votes: 0,                                             // Startwert
-        host: peerInfo.host,              // oder per fetch dynamisch setzen
-        port: peerInfo.port                                    // oder per fetch dynamisch setzen
+        timestamp: new Date().toISOString(),
+        comments: {},
+        votes: 0,
+        host: peerInfo.host,
+        port: peerInfo.port
       };
 
       if (!newCard.title || !newCard.author || !newCard.content) {
@@ -501,7 +550,6 @@ class BulletinBoardManager {
       .then(response => response.json())
       .then(data => console.log("Karte wurde serverseitig gespeichert:", data))
       .catch(error => console.error("Fehler beim Speichern der Karte:", error));
-
 
       // Karte zum DOM hinzufügen
       this.addCardToBoard(newCard);
@@ -593,7 +641,4 @@ class BulletinBoardManager {
 // App initialisieren wenn DOM geladen ist
 window.addEventListener('DOMContentLoaded', () => {
   window.boardManager = new BulletinBoardManager();
-  window.boardManager.loadRemoteBoards(); // Boards aus JSON laden
 });
-
-

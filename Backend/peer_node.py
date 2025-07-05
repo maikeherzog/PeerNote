@@ -280,7 +280,7 @@ class PeerNode:
                         print("Received PING.")
                         handle_ping(self, conn, data)
                         # reply with PONG
-
+                        
                     case MessageType.PONG:
                         print("Received PONG.")
                         self.pongs += 1

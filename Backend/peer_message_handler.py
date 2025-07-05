@@ -85,8 +85,9 @@ def receive_exactly(n_bytes, conn, header: bool = False):
     return buf
 
 
+
 def handle_ping(node, conn, data: dict):
-    print("Received PING.")
+    print(f"Ping message: {data}")
 
     # prepare data for another ping message or pong message
     payload = data.get("payload", {})
@@ -99,15 +100,23 @@ def handle_ping(node, conn, data: dict):
                               "_port")
 
     if ping_id in node.routing_table:
-        print("Already received PINg --> ignoring")
+        print("Already received PING --> ignoring")
         # ignore duplicate ping
         return
     else:
         node.routing_table[ping_id] = (conn, time.time())
 
     # Match prüfen
-    if node.board and node.board.query_matches(keywords):
+    if True:
         print(f"Node-board id {node.board.board_id}")
+        try:
+            with open("data/boards.json", "r", encoding="utf-8") as f:
+                boards = json.load(f)
+                print(f"[BOOTSTRAP] Loaded boards: {boards}")
+        except Exception as e:
+            print(f"[BOOTSTRAP] Fehler beim Laden von board.json: {e}")
+            boards = []
+
         pong_payload = {
             "ping_id": ping_id,
             "title": node.board.get_title(),
@@ -115,6 +124,7 @@ def handle_ping(node, conn, data: dict):
             "responder_id": node.node_id,
             "responder_host": node.host,
             "responder_port": node.port,
+            "boards": boards,
         }
 
         try:
